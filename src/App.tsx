@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import { Trophy, PlusCircle, User, LayoutDashboard } from 'lucide-react'
+import { User, LayoutDashboard } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import PlayerStats from './pages/PlayerStats'
 

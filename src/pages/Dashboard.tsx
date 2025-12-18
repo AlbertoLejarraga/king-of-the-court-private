@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import type { DailyStat } from '../types'
-import { Crown, Flame, Trophy, Gauge, User } from 'lucide-react'
+import { Crown, Flame, Trophy, Gauge, User, X, Star } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import MatchReporter from './MatchReporter'
@@ -100,16 +100,90 @@ function TotalWinsBoard() {
             </div>
         </div>
     )
+
 }
+
+function DayResultModal({ result, onClose }: { result: { bonusWinner: { name: string, streak: number }, dayWinner: { name: string, points: number } } | null, onClose: () => void }) {
+    if (!result) return null
+
+    return (
+        <AnimatePresence>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                    onClick={onClose}
+                ></motion.div>
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    className="relative bg-gradient-to-b from-neutral-800 to-neutral-900 border border-yellow-500/30 w-full max-w-lg rounded-[2.5rem] p-8 shadow-[0_0_50px_rgba(234,179,8,0.2)] overflow-hidden"
+                >
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500"></div>
+                    <button onClick={onClose} className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors bg-neutral-800/50 p-2 rounded-full">
+                        <X size={24} />
+                    </button>
+
+                    <div className="text-center mb-8">
+                        <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-2">Resultados del Día</h2>
+                        <div className="h-1 w-20 bg-yellow-500 mx-auto rounded-full"></div>
+                    </div>
+
+                    <div className="space-y-6">
+                        {/* Day Winner */}
+                        <div className="bg-gradient-to-br from-yellow-900/40 to-black/40 p-6 rounded-3xl border border-yellow-500/30 relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="relative flex flex-col items-center text-center">
+                                <Crown size={48} className="text-yellow-500 mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
+                                <div className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-1">Ganador del Día</div>
+                                <div className="text-4xl font-black text-white tracking-tight mb-2">{result.dayWinner.name}</div>
+                                <div className="text-2xl font-bold text-yellow-100/80 table-nums">{result.dayWinner.points.toFixed(2)} pts</div>
+                            </div>
+                        </div>
+
+                        {/* Racha Bonus */}
+                        <div className="bg-neutral-800/50 p-5 rounded-3xl border border-blue-500/20 flex items-center gap-4">
+                            <div className="bg-blue-500/20 p-3 rounded-2xl shrink-0">
+                                <Flame size={32} className="text-blue-400" />
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Bonus Racha (+2 pts)</div>
+                                <div className="text-xl font-bold text-white">{result.bonusWinner.name}</div>
+                                <div className="text-sm text-neutral-400">Racha de {result.bonusWinner.streak} victorias</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8">
+                        <button
+                            onClick={onClose}
+                            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-widest py-4 rounded-2xl text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-yellow-500/20"
+                        >
+                            Continuar
+                        </button>
+                    </div>
+                </motion.div>
+            </div>
+        </AnimatePresence>
+    )
+}
+
+
 
 export default function Dashboard() {
     const [stats, setStats] = useState<DailyStat[]>([])
     const [kingId, setKingId] = useState<string | null>(null)
     const [maxStreakPlayer, setMaxStreakPlayer] = useState<{ name: string, streak: number } | null>(null)
+    const [dayResult, setDayResult] = useState<{
+        bonusWinner: { name: string, streak: number },
+        dayWinner: { name: string, points: number }
+    } | null>(null)
 
     useEffect(() => {
         fetchData()
-
         const channel = supabase.channel('dashboard_realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_stats' }, () => {
                 console.log('Stats updated')
@@ -158,13 +232,23 @@ export default function Dashboard() {
     }
 
     async function closeDay() {
-        if (!confirm("¿CERRAR EL DÍA? \n\nEsto reiniciará el ranking diario a CERO.")) return;
+        if (!confirm("¿CERRAR EL DÍA? \n\nEsto reiniciará el ranking diario a CERO (visualmente) y otorgará los bonus.")) return;
 
         const { data, error } = await supabase.rpc('close_day_bonus')
-        if (error) alert('Error: ' + error.message)
-        else {
-            alert(data.message)
-            fetchData() // Immediate refresh to clear board
+
+        if (error) {
+            alert('Error: ' + error.message)
+            return
+        }
+
+        if (data && data.success) {
+            fetchData() // Refresh data
+            setDayResult({
+                bonusWinner: data.bonus_winner,
+                dayWinner: data.day_winner
+            })
+        } else {
+            alert(data?.message || 'Error desconocido')
         }
     }
 
@@ -326,6 +410,9 @@ export default function Dashboard() {
                 </div>
 
             </div>
+
+            {/* Day Result Modal */}
+            {dayResult && <DayResultModal result={dayResult} onClose={() => setDayResult(null)} />}
         </div>
     )
 }

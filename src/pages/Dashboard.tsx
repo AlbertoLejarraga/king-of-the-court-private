@@ -262,20 +262,20 @@ export default function Dashboard() {
                 <div className="flex items-center gap-4 md:gap-8 z-10">
                     <div className="bg-gradient-to-b from-yellow-400 to-orange-600 h-16 w-3 rounded-full shadow-[0_0_20px_orange]"></div>
                     <div>
-                        <h1 className="text-3xl md:text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500 uppercase">
+                        <h1 className="text-3xl md:text-5xl lg:text-6xl xl:text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500 uppercase">
                             King of the Court
                         </h1>
                     </div>
                 </div>
 
-                {/* PC: Centered Logo */}
-                <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none z-0">
+                {/* PC: Centered Logo - Only on very wide screens */}
+                <div className="hidden 2xl:flex absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none z-0">
                     <img src={Escudo} alt="Escudo UD Sanse" className="h-24 object-contain opacity-80" />
                 </div>
 
                 <div className="flex items-center gap-6 z-10">
-                    {/* Mobile: Logo in top right - Larger */}
-                    <img src={Escudo} alt="Escudo UD Sanse" className="md:hidden h-24 w-auto object-contain" />
+                    {/* Mobile & Medium Screens: Logo in top right - Visible until 2xl */}
+                    <img src={Escudo} alt="Escudo UD Sanse" className="2xl:hidden h-24 w-auto object-contain" />
 
                     {/* Stats Button: Hidden on Mobile */}
                     <Link to="/stats" className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-8 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl">

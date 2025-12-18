@@ -95,7 +95,7 @@ begin
         -- If that's the case, they are "fresh" for the day, so easy to beat?
         -- Logic: "if the king batido llevaba al menos 3 partidos" (current streak >= 3).
         
-        if v_king_streak >= 3 then
+        if v_king_streak >= 4 then
             v_king_bonus := 0.5;
         end if;
     end if;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import type { DailyStat } from '../types'
-import { Crown, Flame, Trophy, Gauge, User, X, Star } from 'lucide-react'
+import { Crown, Flame, Trophy, Gauge, User, X } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import MatchReporter from './MatchReporter'

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import type { DailyStat } from '../types'
-import { Crown, Flame, Trophy, Gauge, User, X } from 'lucide-react'
+import { Crown, Flame, Trophy, Gauge, User, X, Dices } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import MatchReporter from './MatchReporter'
 import QRCode from "react-qr-code";
 import { Link } from 'react-router-dom'
 import Escudo from '../assets/Escudo_UDSanse.png'
+import RouletteModal from '../components/RouletteModal'
 
 // --- Types ---
 interface GlobalRank {
@@ -181,6 +182,7 @@ export default function Dashboard() {
         bonusWinner: { name: string, streak: number },
         dayWinner: { name: string, points: number }
     } | null>(null)
+    const [showRoulette, setShowRoulette] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -252,6 +254,48 @@ export default function Dashboard() {
         }
     }
 
+    async function undoLastMatch() {
+        // 1. Get last match details for the confirmation message
+        const { data: lastMatch, error: fetchError } = await supabase
+            .from('matches')
+            .select(`
+                id,
+                winner:players!winner_id(name),
+                loser:players!loser_id(name)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+        if (fetchError || !lastMatch) {
+            alert("No hay partidos para anular.")
+            return
+        }
+
+        // @ts-ignore
+        const winnerName = lastMatch.winner?.name
+        // @ts-ignore
+        const loserName = lastMatch.loser?.name
+
+        if (!confirm(`¿Estás seguro de que quieres eliminar el último partido entre ${winnerName} y ${loserName}?`)) {
+            return
+        }
+
+        const { data, error } = await supabase.rpc('undo_last_match', { p_match_id: lastMatch.id })
+
+        if (error) {
+            alert('Error: ' + error.message)
+            return
+        }
+
+        if (data && data.success) {
+            fetchData()
+            alert(data.message)
+        } else {
+            alert(data?.message || 'Error desconocido')
+        }
+    }
+
     const appUrl = window.location.origin;
 
     return (
@@ -276,6 +320,22 @@ export default function Dashboard() {
                 <div className="flex items-center gap-6 z-10">
                     {/* Mobile & Medium Screens: Logo in top right - Visible until 2xl */}
                     <img src={Escudo} alt="Escudo UD Sanse" className="2xl:hidden h-24 w-auto object-contain" />
+
+                    {/* Roulette Button: Hidden on Mobile */}
+                    <button
+                        onClick={() => setShowRoulette(true)}
+                        className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-6 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl"
+                    >
+                        <Dices size={24} /> Ruleta
+                    </button>
+
+                    {/* Undo Button: Hidden on Mobile */}
+                    <button
+                        onClick={undoLastMatch}
+                        className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-orange-500 px-6 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl"
+                    >
+                        <X size={24} /> Anular Partido
+                    </button>
 
                     {/* Stats Button: Hidden on Mobile */}
                     <Link to="/stats" className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-8 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl">
@@ -395,6 +455,20 @@ export default function Dashboard() {
                         >
                             Cerrar Día
                         </button>
+
+                        <button
+                            onClick={() => setShowRoulette(true)}
+                            className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-neutral-300 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
+                        >
+                            <Dices size={32} /> Ruleta
+                        </button>
+
+                        <button
+                            onClick={undoLastMatch}
+                            className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-orange-500 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
+                        >
+                            <X size={32} /> Anular Partido
+                        </button>
                     </div>
 
                     {/* QR Code (Hidden on Mobile) */}
@@ -413,6 +487,9 @@ export default function Dashboard() {
 
             {/* Day Result Modal */}
             {dayResult && <DayResultModal result={dayResult} onClose={() => setDayResult(null)} />}
+
+            {/* Roulette Modal */}
+            <RouletteModal isOpen={showRoulette} onClose={() => setShowRoulette(false)} />
         </div>
     )
 }

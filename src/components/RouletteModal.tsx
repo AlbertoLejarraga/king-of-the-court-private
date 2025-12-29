@@ -61,7 +61,6 @@ const RouletteModal: React.FC<RouletteModalProps> = ({ isOpen, onClose }) => {
         // Ball bounce animation sequence
         // We want a bounce every time a segment divider passes the top
         const duration = 5000;
-        const totalSegmentsPassed = extraTurns * SEGMENTS + (isWinner ? 0 : 1); // rough estimate
 
         // We'll simulate bounces based on duration
         const start = Date.now();

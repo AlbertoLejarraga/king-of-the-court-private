@@ -25,3 +25,26 @@ export interface MatchResult {
     multiplier: number
     loser_percentile: number
 }
+
+export interface LeagueStanding {
+    player_id: string
+    day_wins: number
+    cup_wins: number
+    total_points: number
+    player?: Player
+}
+
+export interface Cup {
+    id: string
+    name: string
+    status: 'setup' | 'groups' | 'finals' | 'finished'
+    finals_mode: 'none' | 'semi_final_final' | 'third_fourth_semi_final' | 'only_final'
+    winner_id?: string
+}
+
+export interface CupPlayer {
+    cup_id: string
+    player_id: string
+    group_name: 'A' | 'B' | null
+    player?: Player
+}

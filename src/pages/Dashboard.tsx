@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import type { DailyStat } from '../types'
-import { Crown, Flame, Trophy, Gauge, User, X, Dices } from 'lucide-react'
+import { Crown, Flame, Trophy, Gauge, User, X, Dices, LayoutDashboard, MoreVertical } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import MatchReporter from './MatchReporter'
@@ -9,11 +9,13 @@ import QRCode from "react-qr-code";
 import { Link } from 'react-router-dom'
 import Escudo from '../assets/Escudo_UDSanse.png'
 import RouletteModal from '../components/RouletteModal'
+import CupManager from '../components/CupManager'
 
 // --- Types ---
 interface GlobalRank {
     player_id: string
     day_wins: number
+    cup_wins: number
     player: { name: string }
 }
 interface TotalWinRank {
@@ -38,7 +40,7 @@ function DayWinnersBoard() {
     async function fetchGlobal() {
         const { data } = await supabase
             .from('league_standings')
-            .select('player_id, day_wins, player:players(name)')
+            .select('player_id, day_wins, cup_wins, player:players(name)')
             .order('day_wins', { ascending: false })
         if (data) setDayWinners(data as any)
     }
@@ -59,7 +61,12 @@ function DayWinnersBoard() {
                             </span>
                             <span className={clsx("font-bold text-xl truncate", i === 0 ? "text-yellow-100" : "text-neutral-300")}>{r.player?.name}</span>
                         </div>
-                        <span className="font-black text-2xl text-yellow-500 ml-2">{r.day_wins}</span>
+                        <div className="flex items-center gap-1">
+                            <span className="font-black text-2xl text-yellow-500">{r.day_wins}</span>
+                            {r.cup_wins > 0 && (
+                                <span className="font-bold text-lg text-yellow-500/60">({r.cup_wins})</span>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
@@ -183,6 +190,10 @@ export default function Dashboard() {
         dayWinner: { name: string, points: number }
     } | null>(null)
     const [showRoulette, setShowRoulette] = useState(false)
+    const [isCupMode, setIsCupMode] = useState(false)
+    const [hasCheckedActiveCup, setHasCheckedActiveCup] = useState(false)
+    const [showMoreMenu, setShowMoreMenu] = useState(false)
+    const [cupName, setCupName] = useState("Matapi's Cup")
 
     useEffect(() => {
         fetchData()
@@ -191,8 +202,12 @@ export default function Dashboard() {
                 console.log('Stats updated')
                 fetchData()
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
                 console.log('Match inserted')
+                fetchData()
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cups' }, () => {
+                console.log('Cup updated')
                 fetchData()
             })
             .subscribe()
@@ -231,6 +246,24 @@ export default function Dashboard() {
         // 2. Get King
         const { data: kingData } = await supabase.from('current_king').select('player_id').single()
         if (kingData) setKingId(kingData.player_id)
+
+        // 3. Auto-switch to Cup Mode if there's an active cup and we haven't checked yet
+        if (!hasCheckedActiveCup) {
+            const { data: activeCup } = await supabase
+                .from('cups')
+                .select('status')
+                .neq('status', 'finished')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single()
+
+            if (activeCup) {
+                setIsCupMode(true)
+                // @ts-ignore
+                if (activeCup.name) setCupName(activeCup.name)
+            }
+            setHasCheckedActiveCup(true)
+        }
     }
 
     async function closeDay() {
@@ -296,7 +329,6 @@ export default function Dashboard() {
         }
     }
 
-    const appUrl = window.location.origin;
 
     return (
         <div className="min-h-screen md:h-screen w-full bg-[#050505] text-white p-6 md:p-8 overflow-y-auto md:overflow-hidden font-sans flex flex-col">
@@ -307,7 +339,7 @@ export default function Dashboard() {
                     <div className="bg-gradient-to-b from-yellow-400 to-orange-600 h-16 w-3 rounded-full shadow-[0_0_20px_orange]"></div>
                     <div>
                         <h1 className="text-3xl md:text-5xl lg:text-6xl xl:text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500 uppercase">
-                            King of the Court
+                            {isCupMode ? cupName : "King of the Court"}
                         </h1>
                     </div>
                 </div>
@@ -317,35 +349,69 @@ export default function Dashboard() {
                     <img src={Escudo} alt="Escudo UD Sanse" className="h-24 object-contain opacity-80" />
                 </div>
 
-                <div className="flex items-center gap-6 z-10">
+                <div className="flex items-center gap-3 md:gap-6 z-10">
                     {/* Mobile & Medium Screens: Logo in top right - Visible until 2xl */}
-                    <img src={Escudo} alt="Escudo UD Sanse" className="2xl:hidden h-24 w-auto object-contain" />
+                    <img src={Escudo} alt="Escudo UD Sanse" className="2xl:hidden h-16 md:h-24 w-auto object-contain" />
 
-                    {/* Roulette Button: Hidden on Mobile */}
+                    {/* Cup Mode Toggle - Always visible */}
+                    <button
+                        onClick={() => setIsCupMode(!isCupMode)}
+                        className={clsx(
+                            "hidden md:flex px-6 py-4 rounded-3xl font-bold transition-all border items-center gap-3 text-xl whitespace-nowrap",
+                            isCupMode
+                                ? "bg-blue-600/20 border-blue-500 text-blue-400 hover:bg-blue-600/30"
+                                : "bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 border-neutral-700"
+                        )}
+                    >
+                        <Trophy size={18} /> {isCupMode ? "Modo Normal" : "Modo Copa"}
+                    </button>
+
+                    {/* Roulette Button - Always visible on laptop/desktop */}
                     <button
                         onClick={() => setShowRoulette(true)}
-                        className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-6 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl"
+                        className="hidden lg:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-6 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl whitespace-nowrap"
                     >
-                        <Dices size={24} /> Ruleta
+                        <Dices size={18} /> Ruleta
                     </button>
 
-                    {/* Undo Button: Hidden on Mobile */}
-                    <button
-                        onClick={undoLastMatch}
-                        className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-orange-500 px-6 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl"
-                    >
-                        <X size={24} /> Anular Partido
-                    </button>
+                    {/* More Menu Dropdown for Stats and Undo on PC when tight */}
+                    <div className="hidden md:block relative">
+                        <button
+                            onClick={() => setShowMoreMenu(!showMoreMenu)}
+                            className="bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 p-4 rounded-3xl border border-neutral-700 transition-all"
+                        >
+                            <MoreVertical size={24} />
+                        </button>
 
-                    {/* Stats Button: Hidden on Mobile */}
-                    <Link to="/stats" className="hidden md:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-8 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl">
-                        <User size={24} /> Stats
-                    </Link>
+                        <AnimatePresence>
+                            {showMoreMenu && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)}></div>
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                        className="absolute right-0 mt-4 w-64 bg-neutral-900 border border-neutral-700 rounded-[2rem] shadow-2xl z-50 overflow-hidden divide-y divide-neutral-800"
+                                    >
+                                        <Link to="/stats" className="flex items-center gap-3 p-5 hover:bg-white/5 transition-colors text-xl font-bold">
+                                            <User size={20} /> Stats
+                                        </Link>
+                                        <button onClick={() => { undoLastMatch(); setShowMoreMenu(false); }} className="w-full flex items-center gap-3 p-5 hover:bg-white/5 transition-colors text-xl font-bold text-orange-500 text-left">
+                                            <X size={20} /> Anular Partido
+                                        </button>
+                                        <button onClick={() => { setShowRoulette(true); setShowMoreMenu(false); }} className="lg:hidden w-full flex items-center gap-3 p-5 hover:bg-white/5 transition-colors text-xl font-bold text-blue-400 text-left">
+                                            <Dices size={20} /> Ruleta
+                                        </button>
+                                    </motion.div>
+                                </>
+                            )}
+                        </AnimatePresence>
+                    </div>
 
-                    {/* Desktop Close Day Button */}
+                    {/* Desktop Close Day Button - Always visible on PC */}
                     <button
                         onClick={closeDay}
-                        className="hidden md:block bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-900/50 px-8 py-4 rounded-3xl font-bold uppercase tracking-widest text-lg transition-all"
+                        className="hidden md:block bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-900/50 px-6 py-4 rounded-3xl font-bold uppercase tracking-widest text-lg transition-all whitespace-nowrap"
                     >
                         Cerrar Día
                     </button>
@@ -355,133 +421,151 @@ export default function Dashboard() {
             {/* Main Grid: Mobile (Flex Column) / Desktop (Grid 12) */}
             <div className="flex flex-col md:grid md:grid-cols-12 gap-8 flex-1 min-h-0">
 
-                {/* COL 1: Daily Ranking (Desktop: Left / Mobile: Bottom) */}
-                <div className="order-3 md:order-none col-span-1 md:col-span-6 flex flex-col min-h-[600px] md:min-h-0 bg-neutral-900/30 rounded-[3rem] border border-neutral-800 p-4 relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-500 to-orange-500 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                {isCupMode ? (
+                    <div className="col-span-12 h-full min-h-0">
+                        <CupManager />
+                    </div>
+                ) : (
+                    <>
+                        {/* COL 1: Daily Ranking (Desktop: Left / Mobile: Bottom) */}
+                        <div className="order-3 md:order-none col-span-1 md:col-span-6 flex flex-col min-h-[600px] md:min-h-0 bg-neutral-900/30 rounded-[3rem] border border-neutral-800 p-4 relative overflow-hidden group">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-500 to-orange-500 opacity-50 group-hover:opacity-100 transition-opacity"></div>
 
-                    {/* Header */}
-                    <div className="flex justify-between items-center p-6 border-b border-neutral-800/50 mb-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]"></div>
-                            <h2 className="text-3xl font-bold text-neutral-200 tracking-tight">EN VIVO</h2>
-                        </div>
-                        {maxStreakPlayer && (
-                            <div className="flex items-center gap-2 bg-blue-900/20 px-4 py-2 rounded-full border border-blue-500/20">
-                                <Flame size={20} className="text-blue-400" />
-                                <span className="text-blue-300 text-sm font-bold uppercase truncate max-w-[200px]">Racha: {maxStreakPlayer.name} ({maxStreakPlayer.streak})</span>
+                            {/* Header */}
+                            <div className="flex justify-between items-center p-6 border-b border-neutral-800/50 mb-4">
+                                <div className="flex items-center gap-2 md:gap-4">
+                                    <div className="w-3 h-3 md:w-4 md:h-4 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]"></div>
+                                    <h2 className="text-xl md:text-3xl font-bold text-neutral-200 tracking-tight">EN VIVO</h2>
+                                </div>
+                                {maxStreakPlayer && (
+                                    <div className="flex items-center gap-1 md:gap-2 bg-blue-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-blue-500/20">
+                                        <Flame size={16} className="text-blue-400 md:w-5 md:h-5" />
+                                        <span className="text-blue-300 text-[10px] md:text-sm font-bold uppercase truncate max-w-[120px] md:max-w-[200px]">Racha: {maxStreakPlayer.name} ({maxStreakPlayer.streak})</span>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
 
-                    {/* Ranking List */}
-                    <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar space-y-4">
-                        <AnimatePresence mode='popLayout'>
-                            {stats.map((stat, index) => {
-                                const isKing = stat.player_id === kingId;
-                                return (
-                                    <motion.div
-                                        key={stat.player_id}
-                                        layout
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
-                                        className={clsx(
-                                            "relative flex items-center p-5 rounded-3xl border-l-[8px] transition-all shadow-xl",
-                                            isKing
-                                                ? "bg-gradient-to-r from-yellow-950/60 to-neutral-900 border-yellow-500 py-6"
-                                                : "bg-neutral-800/40 border-neutral-700 hover:bg-neutral-800/60"
-                                        )}
-                                    >
-                                        <div className={clsx("w-12 md:w-16 text-center font-black italic text-3xl md:text-5xl", isKing ? "text-yellow-500" : "text-neutral-600")}>
-                                            #{index + 1}
-                                        </div>
-                                        <div className="flex-1 pl-4 md:pl-6 min-w-0">
-                                            <div className="flex items-center gap-3">
-                                                <span className={clsx("text-2xl md:text-4xl font-bold tracking-tight truncate", isKing ? "text-white" : "text-neutral-300")}>
-                                                    {stat.player?.name}
-                                                </span>
-                                                {isKing && <Crown size={32} fill="currentColor" className="text-yellow-500 shrink-0" />}
-                                            </div>
-                                            <div className="flex gap-6 text-sm font-bold text-neutral-500 mt-2 uppercase tracking-wider">
-                                                <span className="text-green-500 text-xl">{stat.wins} W</span>
-                                                <span className="text-red-500 text-xl">{stat.losses} L</span>
-                                                <span className="text-neutral-400 text-xl">Strk: {stat.current_streak}</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right pl-4">
-                                            <div className="text-4xl md:text-6xl font-black text-white leading-none tracking-tighter tabular-nums text-shadow-sm">
-                                                {stat.points.toFixed(2)}
-                                            </div>
-                                            <div className="text-xs text-neutral-600 font-bold uppercase tracking-wider mt-1">Puntos</div>
-                                        </div>
-                                    </motion.div>
-                                )
-                            })}
-                        </AnimatePresence>
-                        {stats.length === 0 && (
-                            <div className="h-full flex flex-col items-center justify-center opacity-30 mt-20">
-                                <Trophy size={80} className="mb-4" />
-                                <span className="text-3xl font-bold">Esperando jugadores...</span>
+                            {/* Ranking List */}
+                            <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar space-y-4">
+                                <AnimatePresence mode='popLayout'>
+                                    {stats.map((stat, index) => {
+                                        const isKing = stat.player_id === kingId;
+                                        return (
+                                            <motion.div
+                                                key={stat.player_id}
+                                                layout
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, scale: 0.9 }}
+                                                className={clsx(
+                                                    "relative flex items-center p-5 rounded-3xl border-l-[8px] transition-all shadow-xl",
+                                                    isKing
+                                                        ? "bg-gradient-to-r from-yellow-950/60 to-neutral-900 border-yellow-500 py-6"
+                                                        : "bg-neutral-800/40 border-neutral-700 hover:bg-neutral-800/60"
+                                                )}
+                                            >
+                                                <div className={clsx("w-10 md:w-16 text-center font-black italic text-2xl md:text-5xl", isKing ? "text-yellow-500" : "text-neutral-600")}>
+                                                    #{index + 1}
+                                                </div>
+                                                <div className="flex-1 pl-3 md:pl-6 min-w-0">
+                                                    <div className="flex items-center gap-2 md:gap-3">
+                                                        <span className={clsx("text-xl md:text-4xl font-bold tracking-tight truncate", isKing ? "text-white" : "text-neutral-300")}>
+                                                            {stat.player?.name}
+                                                        </span>
+                                                        {isKing && <Crown size={24} fill="currentColor" className="text-yellow-500 shrink-0 md:w-8 md:h-8" />}
+                                                    </div>
+                                                    <div className="flex gap-3 md:gap-6 font-bold text-neutral-500 mt-1 md:mt-2 uppercase tracking-wider overflow-hidden">
+                                                        <span className="text-green-500 text-sm md:text-xl whitespace-nowrap">{stat.wins} W</span>
+                                                        <span className="text-red-500 text-sm md:text-xl whitespace-nowrap">{stat.losses} L</span>
+                                                        <span className="text-neutral-400 text-sm md:text-xl whitespace-nowrap">Strk: {stat.current_streak}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right pl-2 md:pl-4 shrink-0">
+                                                    <div className="text-3xl md:text-6xl font-black text-white leading-none tracking-tighter tabular-nums text-shadow-sm">
+                                                        {stat.points.toFixed(2)}
+                                                    </div>
+                                                    <div className="text-[10px] md:text-xs text-neutral-600 font-bold uppercase tracking-wider mt-1">Puntos</div>
+                                                </div>
+                                            </motion.div>
+                                        )
+                                    })}
+                                </AnimatePresence>
+                                {stats.length === 0 && (
+                                    <div className="h-full flex flex-col items-center justify-center opacity-30 mt-20">
+                                        <Trophy size={80} className="mb-4" />
+                                        <span className="text-3xl font-bold">Esperando jugadores...</span>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* COL 2: Kings + Total (Hidden on Mobile) */}
-                <div className="hidden md:flex col-span-1 md:col-span-3 flex-col gap-8 min-h-0">
-                    <div className="flex-1 min-h-0">
-                        <DayWinnersBoard />
-                    </div>
-                    <div className="flex-1 min-h-0">
-                        <TotalWinsBoard />
-                    </div>
-                </div>
-
-                {/* COL 3: Reporter + QR (Desktop: Right / Mobile: Top) */}
-                <div className="order-1 md:order-none col-span-1 md:col-span-3 flex flex-col gap-8 min-h-0">
-                    {/* Reporter */}
-                    <div className="flex-auto h-auto min-h-[350px] md:min-h-0 bg-neutral-900 rounded-[3rem] border border-neutral-800 p-2 shadow-2xl relative overflow-hidden flex flex-col justify-center">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                        <div className="p-4">
-                            <MatchReporter onSuccess={fetchData} />
                         </div>
-                    </div>
 
-                    {/* Mobile Only: Close Day Button (Middle) */}
-                    <div className="order-2 md:hidden">
-                        <button
-                            onClick={closeDay}
-                            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-900/50 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all"
-                        >
-                            Cerrar Día
-                        </button>
-
-                        <button
-                            onClick={() => setShowRoulette(true)}
-                            className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-neutral-300 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
-                        >
-                            <Dices size={32} /> Ruleta
-                        </button>
-
-                        <button
-                            onClick={undoLastMatch}
-                            className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-orange-500 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
-                        >
-                            <X size={32} /> Anular Partido
-                        </button>
-                    </div>
-
-                    {/* QR Code (Hidden on Mobile) */}
-                    <div className="hidden md:flex shrink-0 bg-white/5 rounded-[3rem] p-8 border border-white/5 items-center justify-center text-center gap-6">
-                        <div className="bg-white p-3 rounded-2xl shadow-lg shadow-white/10 shrink-0">
-                            <QRCode value={appUrl} size={84} />
+                        {/* COL 2: Kings + Total (Desktop Only) */}
+                        <div className="hidden md:flex col-span-1 md:col-span-3 flex-col gap-8 min-h-0">
+                            <div className="flex-1 min-h-0">
+                                <DayWinnersBoard />
+                            </div>
+                            <div className="flex-1 min-h-0">
+                                <TotalWinsBoard />
+                            </div>
                         </div>
-                        <div className="text-left">
-                            <div className="text-white font-bold text-3xl leading-none mb-2">Únete</div>
-                            <div className="text-neutral-400 text-sm uppercase tracking-widest leading-tight">Escanea para<br />jugar</div>
+
+                        {/* COL 3: Reporter + QR (Desktop: Right / Mobile: Top) */}
+                        <div className="order-1 md:order-none col-span-1 md:col-span-3 flex flex-col gap-8 min-h-0">
+                            {/* Reporter */}
+                            <div className="flex-auto h-auto min-h-[350px] md:min-h-0 bg-neutral-900 rounded-[3rem] border border-neutral-800 p-2 shadow-2xl relative overflow-hidden flex flex-col justify-center">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                                <div className="p-4">
+                                    <MatchReporter onSuccess={fetchData} />
+                                </div>
+                            </div>
+
+                            {/* Mobile Only: Close Day Button (Middle) */}
+                            <div className="order-2 md:hidden">
+                                <button
+                                    onClick={closeDay}
+                                    className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-900/50 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all"
+                                >
+                                    Cerrar Día
+                                </button>
+
+                                <button
+                                    onClick={() => setShowRoulette(true)}
+                                    className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-neutral-300 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
+                                >
+                                    <Dices size={32} /> Ruleta
+                                </button>
+
+                                <button
+                                    onClick={undoLastMatch}
+                                    className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-orange-500 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
+                                >
+                                    <X size={32} /> Anular Partido
+                                </button>
+                            </div>
+
+                            {/* QR Code (Hidden on Mobile) */}
+                            <div className="hidden md:flex shrink-0 bg-white/5 rounded-[3rem] p-8 border border-white/5 items-center justify-center text-center gap-6">
+                                <div className="bg-white p-3 rounded-2xl shadow-lg shadow-white/10 shrink-0">
+                                    <QRCode value={window.location.origin} size={84} />
+                                </div>
+                                <div className="text-left">
+                                    <div className="text-white font-bold text-3xl leading-none mb-2">Únete</div>
+                                    <div className="text-neutral-400 text-sm uppercase tracking-widest leading-tight">Escanea para<br />jugar</div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+
+                        {/* NEW: Mobile Bottom Info Sections (Below En Vivo) */}
+                        <div className="order-4 md:hidden flex flex-col gap-6">
+                            <div className="h-[500px]">
+                                <DayWinnersBoard />
+                            </div>
+                            <div className="h-[500px]">
+                                <TotalWinsBoard />
+                            </div>
+                        </div>
+                    </>
+                )}
 
             </div>
 
@@ -490,6 +574,50 @@ export default function Dashboard() {
 
             {/* Roulette Modal */}
             <RouletteModal isOpen={showRoulette} onClose={() => setShowRoulette(false)} />
+
+            {/* Mobile Bottom Navigation */}
+            <div className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900/90 backdrop-blur-xl border-t border-white/10 px-6 py-4 flex justify-between items-center z-[80] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+                <button
+                    onClick={() => setIsCupMode(false)}
+                    className={clsx(
+                        "flex flex-col items-center gap-1 transition-all",
+                        !isCupMode ? "text-red-500 scale-110" : "text-neutral-500"
+                    )}
+                >
+                    <LayoutDashboard size={28} />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Ranking</span>
+                </button>
+
+                <button
+                    onClick={() => setIsCupMode(true)}
+                    className={clsx(
+                        "flex flex-col items-center gap-1 transition-all",
+                        isCupMode ? "text-blue-500 scale-110" : "text-neutral-500"
+                    )}
+                >
+                    <Trophy size={28} />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Copa</span>
+                </button>
+
+                <button
+                    onClick={() => setShowRoulette(true)}
+                    className="flex flex-col items-center gap-1 text-neutral-500 active:text-white"
+                >
+                    <Dices size={28} />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Ruleta</span>
+                </button>
+
+                <Link
+                    to="/stats"
+                    className="flex flex-col items-center gap-1 text-neutral-500"
+                >
+                    <User size={28} />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Historico</span>
+                </Link>
+            </div>
+
+            {/* Add padding at the bottom of the content on mobile to avoid fixed nav overlap */}
+            <div className="md:hidden h-24 shrink-0" />
         </div>
     )
 }

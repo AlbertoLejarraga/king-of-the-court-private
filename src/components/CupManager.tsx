@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import type { Player, Cup, CupPlayer } from '../types'
-import { Trophy, Users, Play, RefreshCw, ChevronRight, CheckCircle2, AlertCircle, Undo2 } from 'lucide-react'
+import { Trophy, Users, Play, RefreshCw, ChevronRight, CheckCircle2, AlertCircle, Undo2, X } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -34,6 +34,18 @@ export default function CupManager() {
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
     const [isAddingPlayer, setIsAddingPlayer] = useState(false)
     const [newPlayerName, setNewPlayerName] = useState('')
+    const [victoryDismissed, setVictoryDismissed] = useState(false)
+    // Ref to track if we are voluntarily viewing a finished cup (to avoid auto-navigating away on realtime update)
+    const viewingFinishedRef = useRef(false) // Use ref to be accessible in fetchInitialData
+
+    useEffect(() => {
+        if (cup?.status !== 'finished') {
+            setVictoryDismissed(false)
+            viewingFinishedRef.current = false
+        } else {
+            viewingFinishedRef.current = true
+        }
+    }, [cup?.status, cup?.id])
 
     useEffect(() => {
         fetchInitialData()
@@ -49,15 +61,29 @@ export default function CupManager() {
 
     async function fetchInitialData() {
         setLoading(true)
-        // 1. Fetch current active cup (latest)
+        // 1. Fetch current active cup (latest NOT finished)
         const { data: cupData } = await supabase
             .from('cups')
             .select('*')
+            .neq('status', 'finished')
             .order('created_at', { ascending: false })
             .limit(1)
             .single()
 
-        if (cupData) setCup(cupData)
+        // Logic: 
+        // If we find an active cup, load it.
+        // If we DON'T find an active cup, BUT we are currently viewing a finished one (in this session), keep it.
+        // If we DON'T find an active cup and we are NOT viewing a finished one, reset to null (Setup).
+
+        if (cupData) {
+            setCup(cupData)
+        } else {
+            // No active cup found in DB
+            if (!viewingFinishedRef.current) {
+                setCup(null)
+            }
+            // If viewingFinishedRef.current is true, we simply don't update 'cup', preserving the local state (which should have the finished cup)
+        }
 
         // 2. Fetch all players with total wins
         const { data: playersData } = await supabase
@@ -194,13 +220,19 @@ export default function CupManager() {
         if (!cup) return
 
         if (!winnerId) {
-            // This is "Start New Edition"
-            //if (!confirm("¿Empezar una nueva Copa? Se perderán los datos de la actual.")) return
+            // This is "Start New Edition" / "Continuar" from Modal
             setCup(null)
             setCupPlayers([])
             setCupMatches([])
             setSelectedPlayerIds(new Set(players.map(p => p.id)))
+            viewingFinishedRef.current = false // Reset viewing ref
             return
+        }
+
+        // Optimistic update to show modal immediately and prevent flash
+        if (cup) {
+            setCup({ ...cup, status: 'finished', winner_id: winnerId })
+            viewingFinishedRef.current = true
         }
 
         const { error } = await supabase
@@ -215,7 +247,8 @@ export default function CupManager() {
 
         // Increment cup wins in standings
         await supabase.rpc('increment_cup_wins', { p_player_id: winnerId })
-        fetchInitialData()
+        // fetchInitialData will trigger by realtime, but logic will respect viewingFinishedRef
+
     }
 
     async function reportMatch(winnerId: string, loserId: string, phase: string) {
@@ -401,7 +434,7 @@ export default function CupManager() {
                     />
                 </div>
 
-                {cup.status === 'finished' && <VictoryModal cup={cup} players={players} onClose={() => finishCup(null)} />}
+                {cup.status === 'finished' && !victoryDismissed && <VictoryModal cup={cup} players={players} onClose={(reset: boolean) => reset ? finishCup(null) : setVictoryDismissed(true)} />}
             </div>
         )
     }
@@ -613,7 +646,7 @@ function FinalPhaseCard({ cup, standingsA, standingsB, matches, active, onSetMod
             {cup.status === 'finished' && (
                 <div className="mt-auto pt-6 border-t border-neutral-800 text-center">
                     <p className="text-neutral-500 font-bold uppercase text-xs mb-2">Copa Finalizada</p>
-                    <button onClick={() => onFinish(null)} className="text-neutral-600 hover:text-white underline text-xs">Iniciar nueva edición</button>
+                    {/* Link removed as per user request */}
                 </div>
             )}
         </div>
@@ -693,6 +726,14 @@ function VictoryModal({ cup, players, onClose }: any) {
                 >
                     <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 animate-pulse"></div>
 
+                    {/* Close Button - Just dismisses modal */}
+                    <button
+                        onClick={() => onClose(false)} // False = Just dismiss
+                        className="absolute top-6 right-6 text-neutral-500 hover:text-white bg-neutral-800/50 hover:bg-neutral-700/50 p-3 rounded-full transition-colors"
+                    >
+                        <X size={24} />
+                    </button>
+
                     <motion.div
                         animate={{
                             y: [0, -20, 0],
@@ -710,7 +751,7 @@ function VictoryModal({ cup, players, onClose }: any) {
                     </h1>
 
                     <button
-                        onClick={onClose}
+                        onClick={() => onClose(true)} // True = Reset (Continuar default behavior)
                         className="bg-white text-black px-12 py-5 rounded-3xl font-black uppercase tracking-widest text-xl hover:bg-neutral-200 transition-all transform hover:scale-110 active:scale-95 shadow-2xl"
                     >
                         Continuar

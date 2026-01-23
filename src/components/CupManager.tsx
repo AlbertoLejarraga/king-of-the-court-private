@@ -195,7 +195,7 @@ export default function CupManager() {
 
         if (!winnerId) {
             // This is "Start New Edition"
-            if (!confirm("¿Empezar una nueva Copa? Se perderán los datos de la actual.")) return
+            //if (!confirm("¿Empezar una nueva Copa? Se perderán los datos de la actual.")) return
             setCup(null)
             setCupPlayers([])
             setCupMatches([])

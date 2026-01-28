@@ -45,6 +45,6 @@ export interface Cup {
 export interface CupPlayer {
     cup_id: string
     player_id: string
-    group_name: 'A' | 'B' | null
+    group_name: 'A' | 'B' | 'C' | null
     player?: Player
 }

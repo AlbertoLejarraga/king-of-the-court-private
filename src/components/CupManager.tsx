@@ -23,6 +23,12 @@ function toRoman(num: number): string {
     return result;
 }
 
+// Helper to calculate win percentage for 3-group tie-breaking
+function getWinPct(p: any) {
+    const total = p.wins + p.losses
+    return total === 0 ? 0 : p.wins / total
+}
+
 export default function CupManager() {
     const [cup, setCup] = useState<Cup | null>(null)
     const [players, setPlayers] = useState<Player[]>([])
@@ -181,14 +187,38 @@ export default function CupManager() {
 
         // 2. Shuffle and assign
         const shuffled = Array.from(selectedPlayerIds).sort(() => Math.random() - 0.5)
-        const half = Math.ceil(shuffled.length / 2)
-        const groupA = shuffled.slice(0, half)
-        const groupB = shuffled.slice(half)
 
-        const inserts = [
-            ...groupA.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'A' })),
-            ...groupB.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'B' }))
-        ]
+        const inserts = []
+        if (shuffled.length >= 10) {
+            // 3 Groups (A, B, C)
+            // Distribute: First third to A, second to B, rest to C
+            // We need to be careful with uneven numbers. 
+            // e.g. 10 -> 4, 3, 3 is better than 3.33. 
+            // Math.ceil(10/3) = 4. 
+            // A: 0-4 (4), B: 4-8 (4), C: 8-10 (2) -> Very unbalanced?
+            // Better distribution logic:
+            const sizeA = Math.ceil(shuffled.length / 3)
+            const rem = shuffled.length - sizeA
+            const sizeB = Math.ceil(rem / 2)
+            // const sizeC = rem - sizeB
+
+            const groupA = shuffled.slice(0, sizeA)
+            const groupB = shuffled.slice(sizeA, sizeA + sizeB)
+            const groupC = shuffled.slice(sizeA + sizeB)
+
+            inserts.push(...groupA.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'A' })))
+            inserts.push(...groupB.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'B' })))
+            inserts.push(...groupC.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'C' })))
+
+        } else {
+            // 2 Groups (A, B)
+            const half = Math.ceil(shuffled.length / 2)
+            const groupA = shuffled.slice(0, half)
+            const groupB = shuffled.slice(half)
+
+            inserts.push(...groupA.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'A' })))
+            inserts.push(...groupB.map(pid => ({ cup_id: currentCupId, player_id: pid, group_name: 'B' })))
+        }
 
         // Clear previous assignments if any
         await supabase.from('cup_players').delete().eq('cup_id', currentCupId)
@@ -375,6 +405,9 @@ export default function CupManager() {
     if (cup.status === 'groups' || cup.status === 'finals' || cup.status === 'finished') {
         const groupAEntities = cupPlayers.filter(cp => cp.group_name === 'A')
         const groupBEntities = cupPlayers.filter(cp => cp.group_name === 'B')
+        const groupCEntities = cupPlayers.filter(cp => cp.group_name === 'C')
+
+        const hasGroupC = groupCEntities.length > 0
 
         const calcStandings = (players: CupPlayer[], groupMatches: any[]) => {
             return players.map(p => {
@@ -395,15 +428,18 @@ export default function CupManager() {
 
         const standingsA = calcStandings(groupAEntities, cupMatches.filter(m => m.cup_phase === 'group_A'))
         const standingsB = calcStandings(groupBEntities, cupMatches.filter(m => m.cup_phase === 'group_B'))
+        const standingsC = calcStandings(groupCEntities, cupMatches.filter(m => m.cup_phase === 'group_C'))
 
         const allGroupsFinished =
             standingsA.length >= 2 && standingsB.length >= 2 &&
+            (!hasGroupC || standingsC.length >= 2) &&
             (cupMatches.filter(m => m.cup_phase === 'group_A').length >= (standingsA.length * (standingsA.length - 1)) / 2) &&
-            (cupMatches.filter(m => m.cup_phase === 'group_B').length >= (standingsB.length * (standingsB.length - 1)) / 2)
+            (cupMatches.filter(m => m.cup_phase === 'group_B').length >= (standingsB.length * (standingsB.length - 1)) / 2) &&
+            (!hasGroupC || (cupMatches.filter(m => m.cup_phase === 'group_C').length >= (standingsC.length * (standingsC.length - 1)) / 2))
 
         return (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full p-4 overflow-hidden">
-                <div className="col-span-1 md:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-8 min-h-0">
+                <div className={clsx("col-span-1 md:col-span-9 grid gap-8 min-h-0", hasGroupC ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-2")}>
                     <GroupCard
                         name="Grupo A"
                         players={groupAEntities}
@@ -418,6 +454,15 @@ export default function CupManager() {
                         onReport={(w, l) => reportMatch(w, l, 'group_B')}
                         onUndo={undoMatch}
                     />
+                    {hasGroupC && (
+                        <GroupCard
+                            name="Grupo C"
+                            players={groupCEntities}
+                            matches={cupMatches.filter(m => m.cup_phase === 'group_C')}
+                            onReport={(w, l) => reportMatch(w, l, 'group_C')}
+                            onUndo={undoMatch}
+                        />
+                    )}
                 </div>
 
                 <div className="col-span-1 md:col-span-3 flex flex-col gap-8 min-h-0">
@@ -425,6 +470,8 @@ export default function CupManager() {
                         cup={cup}
                         standingsA={standingsA}
                         standingsB={standingsB}
+                        standingsC={standingsC}
+                        hasGroupC={hasGroupC}
                         matches={cupMatches}
                         active={allGroupsFinished || cup.status === 'finals' || cup.status === 'finished'}
                         onSetMode={setFinalsMode}
@@ -561,7 +608,7 @@ function GroupCard({ name, players, matches, onReport, onUndo }: {
     )
 }
 
-function FinalPhaseCard({ cup, standingsA, standingsB, matches, active, onSetMode, onReport, onFinish, onUndo }: any) {
+function FinalPhaseCard({ cup, standingsA, standingsB, standingsC, hasGroupC, matches, active, onSetMode, onReport, onFinish, onUndo }: any) {
     if (!active) {
         return (
             <div className="flex-1 bg-neutral-900/50 rounded-[2.5rem] border border-neutral-800 p-6 flex flex-col items-center justify-center text-center opacity-50 grayscale transition-all hover:grayscale-0 hover:bg-neutral-800/80 group">
@@ -578,7 +625,9 @@ function FinalPhaseCard({ cup, standingsA, standingsB, matches, active, onSetMod
                 <h3 className="text-2xl font-black text-white mb-6 uppercase italic tracking-tighter text-center">Configurar Finales</h3>
                 <div className="space-y-4">
                     <button onClick={() => onSetMode('semi_final_final')} className="w-full p-6 bg-blue-600/20 border border-blue-500/50 rounded-2xl hover:bg-blue-600/40 transition-all font-bold text-lg">Semifinales y Final</button>
-                    <button onClick={() => onSetMode('third_fourth_semi_final')} className="w-full p-6 bg-blue-600/20 border border-blue-500/50 rounded-2xl hover:bg-blue-600/40 transition-all font-bold text-lg">3º/4º puesto + Semis</button>
+                    {!hasGroupC && (
+                        <button onClick={() => onSetMode('third_fourth_semi_final')} className="w-full p-6 bg-blue-600/20 border border-blue-500/50 rounded-2xl hover:bg-blue-600/40 transition-all font-bold text-lg">3º/4º puesto + Semis</button>
+                    )}
                     <button onClick={() => onSetMode('only_final')} className="w-full p-6 bg-blue-600/20 border border-blue-500/50 rounded-2xl hover:bg-blue-600/40 transition-all font-bold text-lg">Solo FINAL</button>
                 </div>
             </div>
@@ -588,9 +637,46 @@ function FinalPhaseCard({ cup, standingsA, standingsB, matches, active, onSetMod
     // Bracket Logic
     const finalsMatches = matches.filter((m: any) => ['semi_1', 'semi_2', 'final', 'third_fourth'].includes(m.cup_phase))
 
-    // Semis
-    const semi1 = { p1: standingsA[0], p2: standingsB[1], phase: 'semi_1' }
-    const semi2 = { p1: standingsB[0], p2: standingsA[1], phase: 'semi_2' }
+    // Determine Semifinal matchups
+    let semi1: any, semi2: any
+
+    if (hasGroupC) {
+        // 3 Groups Logic: Top 1 of each + Best 2nd
+        const winners = [standingsA[0], standingsB[0], standingsC[0]].filter(Boolean)
+
+        // Find Best 2nd
+        const runnersUp = [standingsA[1], standingsB[1], standingsC[1]].filter(Boolean)
+        const bestSecond = runnersUp.sort((a, b) => {
+            const wap = getWinPct(a); const wbp = getWinPct(b);
+            if (wap !== wbp) return wbp - wap // Higher win % better
+            if (a.totalHistoricalWins !== b.totalHistoricalWins) return a.totalHistoricalWins - b.totalHistoricalWins // Lower hist wins better (underdog)
+            return 0
+        })[0]
+
+        // Rank the 3 winners to seed them 1-3
+        const sortedWinners = winners.sort((a, b) => {
+            const wap = getWinPct(a); const wbp = getWinPct(b);
+            if (wap !== wbp) return wbp - wap
+            if (a.totalHistoricalWins !== b.totalHistoricalWins) return a.totalHistoricalWins - b.totalHistoricalWins
+            return 0
+        })
+
+        // Seed 1 vs Seed 4 (Best 2nd)
+        // Seed 2 vs Seed 3
+        const seed1 = sortedWinners[0]
+        const seed2 = sortedWinners[1]
+        const seed3 = sortedWinners[2]
+        const seed4 = bestSecond
+
+        semi1 = { p1: seed1, p2: seed4, phase: 'semi_1' } // Top Perf vs Best 2nd
+        semi2 = { p1: seed2, p2: seed3, phase: 'semi_2' } // 2nd vs 3rd
+
+    } else {
+        // 2 Groups Logic
+        semi1 = { p1: standingsA[0], p2: standingsB[1], phase: 'semi_1' }
+        semi2 = { p1: standingsB[0], p2: standingsA[1], phase: 'semi_2' }
+    }
+
 
     const mS1 = finalsMatches.find((m: any) => m.cup_phase === 'semi_1')
     const mS2 = finalsMatches.find((m: any) => m.cup_phase === 'semi_2')
@@ -598,8 +684,20 @@ function FinalPhaseCard({ cup, standingsA, standingsB, matches, active, onSetMod
     // Final
     let finalP1: any, finalP2: any
     if (cup.finals_mode === 'only_final') {
-        finalP1 = standingsA[0]
-        finalP2 = standingsB[0]
+        // For only final in 3 groups, maybe Top 2 Overall? 
+        // Or just let them play semis. 
+        // For simplicity reusing 2-group logic: A1 vs B1. 
+        // But for 3 groups, 'only_final' is tricky. Let's assume Top A vs Top B for now or disable 'only_final' for 3 groups if complicated.
+        // Let's stick to standard behavior: if 3 groups, 'only_final' might arguably be Top 2 seeds.
+        if (hasGroupC) {
+            // Rank all 3 winners
+            const top2Obs = [standingsA[0], standingsB[0], standingsC[0]].sort((a, b) => getWinPct(b) - getWinPct(a))
+            finalP1 = top2Obs[0]
+            finalP2 = top2Obs[1]
+        } else {
+            finalP1 = standingsA[0]
+            finalP2 = standingsB[0]
+        }
     } else {
         finalP1 = mS1 ? (mS1.winner_id === semi1.p1.player_id ? semi1.p1 : semi1.p2) : null
         finalP2 = mS2 ? (mS2.winner_id === semi2.p1.player_id ? semi2.p1 : semi2.p2) : null

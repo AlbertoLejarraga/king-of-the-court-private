@@ -189,7 +189,7 @@ export default function CupManager() {
         const shuffled = Array.from(selectedPlayerIds).sort(() => Math.random() - 0.5)
 
         const inserts = []
-        if (shuffled.length >= 10) {
+        if (shuffled.length >= 12) {
             // 3 Groups (A, B, C)
             // Distribute: First third to A, second to B, rest to C
             // We need to be careful with uneven numbers. 

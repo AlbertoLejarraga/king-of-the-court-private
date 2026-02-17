@@ -22,6 +22,79 @@ interface TotalWinRank {
     player_id: string
     name: string
     total_wins: number
+    win_percentage: number
+}
+
+function PingPongClock() {
+    const [time, setTime] = useState(new Date())
+    const [hit, setHit] = useState<'left' | 'right' | null>(null)
+
+    useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000)
+        return () => clearInterval(timer)
+    }, [])
+
+    const hours = time.getHours().toString().padStart(2, '0')
+    const minutes = time.getMinutes().toString().padStart(2, '0')
+    const seconds = time.getSeconds().toString().padStart(2, '0')
+
+    // Sync bounce: even seconds move one way, odd seconds the other
+    const isEven = time.getSeconds() % 2 === 0
+
+    return (
+        <div className="hidden lg:flex items-center bg-neutral-900 px-4 py-2 rounded-2xl border border-white/5 shadow-2xl relative overflow-hidden h-14">
+            <div className="flex items-center gap-3 relative z-10 font-mono">
+                {/* Hours */}
+                <motion.div
+                    animate={hit === 'left' ? { x: [-2, 2, -1, 1, 0], scale: [1, 1.05, 1] } : {}}
+                    transition={{ duration: 0.2 }}
+                    className="w-10 text-center"
+                >
+                    <span className="text-2xl font-black text-white">{hours}</span>
+                </motion.div>
+
+                {/* Court / Match Animation */}
+                <div className="relative w-24 h-10 flex items-center justify-center">
+                    {/* Net / Seconds */}
+                    <div className="absolute inset-0 flex flex-col justify-center items-center">
+                        <div className="text-lg font-black text-white/40 leading-none">{seconds}</div>
+                        <div className="w-[1px] h-full bg-white/10 border-r border-dashed border-white/20 absolute"></div>
+                    </div>
+
+                    <motion.div
+                        key={seconds} // Re-trigger for a fresh bounce every second
+                        initial={{ x: isEven ? -40 : 40, y: 0 }}
+                        animate={{
+                            x: isEven ? 40 : -40,
+                            y: [0, -14, 0]
+                        }}
+                        onUpdate={(latest: any) => {
+                            if (latest.x < -38) setHit('left')
+                            else if (latest.x > 38) setHit('right')
+                            else setHit(null)
+                        }}
+                        transition={{
+                            duration: 1,
+                            ease: "easeInOut"
+                        }}
+                        className="w-3.5 h-3.5 bg-orange-500 rounded-full shadow-[0_0_15px_#f97316] z-20"
+                    />
+                </div>
+
+                {/* Minutes */}
+                <motion.div
+                    animate={hit === 'right' ? { x: [-2, 2, -1, 1, 0], scale: [1, 1.05, 1] } : {}}
+                    transition={{ duration: 0.2 }}
+                    className="w-10 text-center"
+                >
+                    <span className="text-2xl font-black text-white">{minutes}</span>
+                </motion.div>
+            </div>
+
+            {/* Subtle light bar at the bottom */}
+            <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-orange-500/50 to-transparent"></div>
+        </div>
+    )
 }
 
 // --- Components ---
@@ -64,7 +137,19 @@ function DayWinnersBoard() {
                         <div className="flex items-center gap-1">
                             <span className="font-black text-2xl text-yellow-500">{r.day_wins}</span>
                             {r.cup_wins > 0 && (
-                                <span className="font-bold text-lg text-yellow-500/60">({r.cup_wins})</span>
+                                <div className="flex gap-0.5 ml-1">
+                                    {Array.from({ length: r.cup_wins }).map((_, idx) => (
+                                        <motion.span
+                                            key={idx}
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ delay: idx * 0.1 }}
+                                            className="text-lg drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]"
+                                        >
+                                            🏆
+                                        </motion.span>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -102,7 +187,12 @@ function TotalWinsBoard() {
                             <span className="text-neutral-600 font-mono w-6 text-right text-xl">{i + 1}.</span>
                             <span className="text-neutral-300 font-bold truncate text-xl">{p.name}</span>
                         </div>
-                        <span className="text-white font-bold ml-2 text-xl">{p.total_wins}</span>
+                        <div className="flex items-baseline gap-3">
+                            <span className="text-white font-bold text-xl">{p.total_wins}</span>
+                            <span className="text-neutral-500 font-mono text-sm bg-neutral-800 px-2 py-0.5 rounded-md min-w-[3.5rem] text-center">
+                                {p.win_percentage}%
+                            </span>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -352,6 +442,8 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3 md:gap-6 z-10">
                     {/* Mobile & Medium Screens: Logo in top right - Visible until 2xl */}
                     <img src={Escudo} alt="Escudo UD Sanse" className="2xl:hidden h-16 md:h-24 w-auto object-contain" />
+
+                    <PingPongClock />
 
                     {/* Cup Mode Toggle - Always visible */}
                     <button

@@ -54,10 +54,10 @@ function PingPongClock() {
                 </motion.div>
 
                 {/* Court / Match Animation */}
-                <div className="relative w-24 h-10 flex items-center justify-center">
+                <div className="relative w-14 h-10 flex items-center justify-center">
                     {/* Net / Seconds */}
                     <div className="absolute inset-0 flex flex-col justify-center items-center">
-                        <div className="text-lg font-black text-white/40 leading-none">{seconds}</div>
+                        <div className="text-xl font-black text-white/40 leading-none">{seconds}</div>
                         <div className="w-[1px] h-full bg-white/10 border-r border-dashed border-white/20 absolute"></div>
                     </div>
 

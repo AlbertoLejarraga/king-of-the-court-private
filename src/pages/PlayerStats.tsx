@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { TrendingUp, Target, Skull, Heart, Handshake, Zap, Calendar, ArrowUpRight, ArrowDownRight, ArrowLeft, LayoutDashboard, Trophy, Dices, User } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { Link } from 'react-router-dom'
 import Escudo from '../assets/Escudo_UDSanse.png'
@@ -99,14 +99,14 @@ export default function PlayerStats() {
                             {/* Curiosidades Section */}
                             <div>
                                 <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <Zap size={16} /> Curiosidades
+                                    <span className="text-sm">⚡</span> Curiosidades
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {/* Favorite Rival */}
                                     <div className="bg-neutral-800/80 p-5 rounded-3xl border border-neutral-700 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
                                         <div className="flex items-center gap-4">
                                             <div className="bg-pink-500/20 p-3 rounded-2xl text-pink-500 group-hover:scale-110 transition-transform">
-                                                <Heart size={24} fill="currentColor" />
+                                                <span className="text-2xl">❤️</span>
                                             </div>
                                             <div>
                                                 <div className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Rival Favorito</div>
@@ -125,7 +125,7 @@ export default function PlayerStats() {
                                     <div className="bg-neutral-800/80 p-5 rounded-3xl border border-neutral-700 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
                                         <div className="flex items-center gap-4">
                                             <div className="bg-red-500/20 p-3 rounded-2xl text-red-500 group-hover:scale-110 transition-transform">
-                                                <Skull size={24} />
+                                                <span className="text-2xl">💀</span>
                                             </div>
                                             <div>
                                                 <div className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Criptonita</div>
@@ -144,7 +144,7 @@ export default function PlayerStats() {
                                     <div className="bg-neutral-800/80 p-5 rounded-3xl border border-neutral-700 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
                                         <div className="flex items-center gap-4">
                                             <div className="bg-blue-500/20 p-3 rounded-2xl text-blue-500 group-hover:scale-110 transition-transform">
-                                                <Handshake size={24} />
+                                                <span className="text-2xl">🤝</span>
                                             </div>
                                             <div>
                                                 <div className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Más Jugado</div>
@@ -164,27 +164,27 @@ export default function PlayerStats() {
                             {/* Summary Cards Grid */}
                             <div>
                                 <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4 mt-8 flex items-center gap-2">
-                                    <LayoutDashboard size={16} /> Resumen Global
+                                    <span className="text-sm">📊</span> Resumen Global
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {/* Win Rate */}
                                     <div className="bg-neutral-800 p-5 rounded-3xl border border-neutral-700 relative overflow-hidden">
                                         <div className="text-neutral-500 text-[10px] uppercase font-black tracking-wider flex items-center gap-2 mb-2">
-                                            <TrendingUp size={14} className="text-green-500" /> Victoria %
+                                            <span className="text-sm">📈</span> Victoria %
                                         </div>
                                         <div className="text-4xl font-black">{advancedStats.win_rate}%</div>
                                     </div>
                                     {/* Total Matches */}
                                     <div className="bg-neutral-800 p-5 rounded-3xl border border-neutral-700">
                                         <div className="text-neutral-500 text-[10px] uppercase font-black tracking-wider flex items-center gap-2 mb-2">
-                                            <Target size={14} className="text-blue-500" /> Partidos
+                                            <span className="text-sm">🎯</span> Partidos
                                         </div>
                                         <div className="text-4xl font-black">{advancedStats.total_matches}</div>
                                     </div>
                                     {/* Max Streak */}
                                     <div className="col-span-2 bg-gradient-to-r from-yellow-900/20 to-neutral-800 p-5 rounded-3xl border border-yellow-500/20 flex flex-col justify-center">
                                         <div className="text-yellow-500 text-[10px] uppercase font-black tracking-wider flex items-center gap-2 mb-2">
-                                            <Zap size={14} fill="currentColor" /> Racha Más Larga
+                                            <span className="text-sm">⚡</span> Racha Más Larga
                                         </div>
                                         <div className="text-4xl font-black text-white">{advancedStats.max_streak} <span className="text-lg font-bold text-neutral-500">victorias</span></div>
                                     </div>
@@ -194,7 +194,7 @@ export default function PlayerStats() {
                             {/* Matches List */}
                             <div>
                                 <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4 mt-8 flex items-center gap-2">
-                                    <Calendar size={16} /> Historial Reciente
+                                    <span className="text-sm">📅</span> Historial Reciente
                                 </h3>
                                 <div className="space-y-3">
                                     {matches.map(match => {
@@ -214,7 +214,7 @@ export default function PlayerStats() {
                                                             {isWinner ? 'Victoria' : 'Derrota'}
                                                         </div>
                                                         <span className="text-neutral-500 text-xs font-bold flex items-center gap-1">
-                                                            <Calendar size={10} /> {dateStr}
+                                                            📅 {dateStr}
                                                         </span>
                                                     </div>
                                                     <div className="text-white font-bold text-lg flex items-center gap-2">
@@ -243,7 +243,7 @@ export default function PlayerStats() {
                     ) : (
                         <div className="text-neutral-500 text-center py-20 italic">
                             <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-700">
-                                <User size={40} />
+                                <span className="text-4xl">👤</span>
                             </div>
                             <p className="text-lg">Selecciona un jugador para ver sus estadísticas.</p>
                         </div>
@@ -252,37 +252,45 @@ export default function PlayerStats() {
             </div>
 
             {/* Mobile Bottom Navigation - Same as Dashboard but with Histórico active */}
-            <div className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900/90 backdrop-blur-xl border-t border-white/10 px-6 py-4 flex justify-between items-center z-[80] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+            <div className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex justify-around items-center z-[80] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
                 <Link
                     to="/"
-                    className="flex flex-col items-center gap-1 text-neutral-500 active:text-white transition-colors"
+                    className="flex flex-col items-center gap-1 transition-all px-2 opacity-40 grayscale"
                 >
-                    <LayoutDashboard size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Ranking</span>
+                    <span className="text-2xl">🏓</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Individual</span>
                 </Link>
 
                 <Link
-                    to="/" // User can switch mode in Dashboard
-                    className="flex flex-col items-center gap-1 text-neutral-500 active:text-white transition-colors"
+                    to="/"
+                    className="flex flex-col items-center gap-1 transition-all px-2 opacity-40 grayscale"
                 >
-                    <Trophy size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Copa</span>
+                    <span className="text-2xl">💑</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Parejas</span>
                 </Link>
 
                 <Link
-                    to="/" // User can open roulette in Dashboard
-                    className="flex flex-col items-center gap-1 text-neutral-500 active:text-white transition-colors"
+                    to="/"
+                    className="flex flex-col items-center gap-1 transition-all px-2 opacity-40 grayscale"
                 >
-                    <Dices size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Ruleta</span>
+                    <span className="text-2xl">🏆</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Copa</span>
+                </Link>
+
+                <Link
+                    to="/"
+                    className="flex flex-col items-center gap-1 transition-all px-2 opacity-40 grayscale"
+                >
+                    <span className="text-2xl">🏆💑</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Copa ♥</span>
                 </Link>
 
                 <button
                     disabled
-                    className="flex flex-col items-center gap-1 text-blue-500 scale-110 cursor-default"
+                    className="flex flex-col items-center gap-1 scale-110 cursor-default px-2"
                 >
-                    <User size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Historico</span>
+                    <span className="text-2xl">👤</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-blue-400">Histórico</span>
                 </button>
             </div>
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import type { DailyStat, DoublesDailyStat } from '../types'
-import { Crown, Flame, Trophy, Gauge, User, X, Dices, LayoutDashboard, MoreVertical, Users } from 'lucide-react'
+import { X, MoreVertical } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import MatchReporter from './MatchReporter'
@@ -125,7 +125,7 @@ function DayWinnersBoard() {
         <div className="bg-gradient-to-br from-yellow-900/40 to-neutral-900/80 rounded-[2.5rem] p-6 border border-yellow-500/20 shadow-xl overflow-hidden flex flex-col h-full relative group">
             <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
             <h3 className="text-xl font-black text-yellow-500 mb-4 flex items-center gap-3 uppercase tracking-wide border-b border-yellow-500/20 pb-3">
-                <Trophy size={28} /> Reyes del Día
+                <span className="text-2xl">🏆</span> Reyes del Día
             </h3>
             <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1">
                 {dayWinners.length === 0 && <p className="text-neutral-500 text-lg italic text-center mt-10">Sin datos.</p>}
@@ -181,7 +181,7 @@ function TotalWinsBoard() {
     return (
         <div className="bg-neutral-900/80 rounded-[2.5rem] p-6 border border-neutral-800 shadow-xl overflow-hidden flex flex-col h-full">
             <h3 className="text-xl font-black text-neutral-400 mb-4 flex items-center gap-3 uppercase tracking-wide border-b border-neutral-800 pb-3">
-                <Gauge size={28} /> Victorias Totales
+                <span className="text-2xl">📊</span> Victorias Totales
             </h3>
             <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1">
                 {matchWinners.map((p, i) => (
@@ -238,7 +238,7 @@ function DayResultModal({ result, onClose }: { result: { bonusWinner: { name: st
                         <div className="bg-gradient-to-br from-yellow-900/40 to-black/40 p-6 rounded-3xl border border-yellow-500/30 relative overflow-hidden group">
                             <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <div className="relative flex flex-col items-center text-center">
-                                <Crown size={48} className="text-yellow-500 mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
+                                <span className="text-5xl mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]">👑</span>
                                 <div className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-1">Ganador del Día</div>
                                 <div className="text-4xl font-black text-white tracking-tight mb-2">{result.dayWinner.name}</div>
                                 <div className="text-2xl font-bold text-yellow-100/80 table-nums">{result.dayWinner.points.toFixed(2)} pts</div>
@@ -248,7 +248,7 @@ function DayResultModal({ result, onClose }: { result: { bonusWinner: { name: st
                         {/* Racha Bonus */}
                         <div className="bg-neutral-800/50 p-5 rounded-3xl border border-blue-500/20 flex items-center gap-4">
                             <div className="bg-blue-500/20 p-3 rounded-2xl shrink-0">
-                                <Flame size={32} className="text-blue-400" />
+                                <span className="text-3xl">🔥</span>
                             </div>
                             <div>
                                 <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Bonus Racha (+2 pts)</div>
@@ -523,7 +523,7 @@ export default function Dashboard() {
                         onClick={() => setShowRoulette(true)}
                         className="hidden lg:flex bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 px-6 py-4 rounded-3xl font-bold transition-all border border-neutral-700 items-center gap-3 text-xl whitespace-nowrap"
                     >
-                        <Dices size={18} /> Ruleta
+                        <span className="text-xl">🎲</span> Ruleta
                     </button>
 
                     {/* More Menu Dropdown for Stats and Undo on PC when tight */}
@@ -546,13 +546,13 @@ export default function Dashboard() {
                                         className="absolute right-0 mt-4 w-64 bg-neutral-900 border border-neutral-700 rounded-[2rem] shadow-2xl z-50 overflow-hidden divide-y divide-neutral-800"
                                     >
                                         <Link to="/stats" className="flex items-center gap-3 p-5 hover:bg-white/5 transition-colors text-xl font-bold">
-                                            <User size={20} /> Stats
+                                            <span className="text-xl">👤</span> Stats
                                         </Link>
                                         <button onClick={() => { undoLastMatch(); setShowMoreMenu(false); }} className="w-full flex items-center gap-3 p-5 hover:bg-white/5 transition-colors text-xl font-bold text-orange-500 text-left">
                                             <X size={20} /> Anular Partido
                                         </button>
                                         <button onClick={() => { setShowRoulette(true); setShowMoreMenu(false); }} className="lg:hidden w-full flex items-center gap-3 p-5 hover:bg-white/5 transition-colors text-xl font-bold text-blue-400 text-left">
-                                            <Dices size={20} /> Ruleta
+                                            <span className="text-xl">🎲</span> Ruleta
                                         </button>
                                     </motion.div>
                                 </>
@@ -591,13 +591,13 @@ export default function Dashboard() {
                                 </div>
                                 {mainMode === 'singles' && maxStreakPlayer && (
                                     <div className="flex items-center gap-1 md:gap-2 bg-blue-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-blue-500/20">
-                                        <Flame size={16} className="text-blue-400 md:w-5 md:h-5" />
+                                        <span className="text-sm md:text-base">🔥</span>
                                         <span className="text-blue-300 text-[10px] md:text-sm font-bold uppercase truncate max-w-[120px] md:max-w-[200px]">Racha: {maxStreakPlayer.name} ({maxStreakPlayer.streak})</span>
                                     </div>
                                 )}
                                 {mainMode === 'doubles' && maxStreakTeam && (
                                     <div className="flex items-center gap-1 md:gap-2 bg-blue-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-blue-500/20">
-                                        <Flame size={16} className="text-blue-400 md:w-5 md:h-5" />
+                                        <span className="text-sm md:text-base">🔥</span>
                                         <span className="text-blue-300 text-[10px] md:text-sm font-bold uppercase truncate max-w-[120px] md:max-w-[200px]">Racha: {maxStreakTeam.name} ({maxStreakTeam.streak})</span>
                                     </div>
                                 )}
@@ -633,7 +633,7 @@ export default function Dashboard() {
                                                         <span className={clsx("text-xl md:text-4xl font-bold tracking-tight truncate", isKing ? "text-white" : "text-neutral-300")}>
                                                             {entityName}
                                                         </span>
-                                                        {isKing && <Crown size={24} fill="currentColor" className={clsx("shrink-0 md:w-8 md:h-8", mainMode === 'singles' ? "text-yellow-500" : "text-blue-500")} />}
+                                                        {isKing && <span className="text-xl md:text-3xl shrink-0">👑</span>}
                                                     </div>
                                                     <div className="flex gap-3 md:gap-6 font-bold text-neutral-500 mt-1 md:mt-2 uppercase tracking-wider overflow-hidden">
                                                         <span className="text-green-500 text-sm md:text-xl whitespace-nowrap">{stat.wins} W</span>
@@ -653,7 +653,7 @@ export default function Dashboard() {
                                 </AnimatePresence>
                                 {(mainMode === 'singles' ? stats.length : doublesStats.length) === 0 && (
                                     <div className="h-full flex flex-col items-center justify-center opacity-30 mt-20">
-                                        <Trophy size={80} className="mb-4" />
+                                        <span className="text-7xl mb-4">🏆</span>
                                         <span className="text-3xl font-bold">Esperando jugadores...</span>
                                     </div>
                                 )}
@@ -694,7 +694,7 @@ export default function Dashboard() {
                                         onClick={() => { setMainMode(mainMode === 'singles' ? 'doubles' : 'singles'); setIsCupMode(false); }}
                                         className="flex-1 bg-neutral-800 border border-neutral-700 text-neutral-300 px-4 py-4 rounded-3xl font-bold uppercase tracking-widest text-lg transition-all flex items-center justify-center gap-2"
                                     >
-                                        <Users size={24} /> {mainMode === 'singles' ? 'Ir Parejas' : 'Ir Indiv.'}
+                                        <span className="text-2xl">{mainMode === 'singles' ? '💑' : '🏓'}</span> {mainMode === 'singles' ? 'Ir Parejas' : 'Ir Indiv.'}
                                     </button>
                                 </div>
 
@@ -702,7 +702,7 @@ export default function Dashboard() {
                                     onClick={() => setShowRoulette(true)}
                                     className="w-full mt-4 bg-neutral-800 border border-neutral-700 text-neutral-300 px-8 py-6 rounded-3xl font-bold uppercase tracking-widest text-2xl transition-all flex items-center justify-center gap-4"
                                 >
-                                    <Dices size={32} /> Ruleta
+                                    <span className="text-3xl">🎲</span> Ruleta
                                 </button>
 
                                 <button
@@ -746,43 +746,57 @@ export default function Dashboard() {
             <RouletteModal isOpen={showRoulette} onClose={() => setShowRoulette(false)} />
 
             {/* Mobile Bottom Navigation */}
-            <div className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900/90 backdrop-blur-xl border-t border-white/10 px-6 py-4 flex justify-between items-center z-[80] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+            <div className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex justify-around items-center z-[80] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
                 <button
-                    onClick={() => setIsCupMode(false)}
+                    onClick={() => { setMainMode('singles'); setIsCupMode(false); }}
                     className={clsx(
-                        "flex flex-col items-center gap-1 transition-all",
-                        !isCupMode ? "text-red-500 scale-110" : "text-neutral-500"
+                        "flex flex-col items-center gap-1 transition-all px-2",
+                        mainMode === 'singles' && !isCupMode ? "scale-110" : "opacity-40 grayscale"
                     )}
                 >
-                    <LayoutDashboard size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Ranking</span>
+                    <span className="text-2xl">🏓</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Individual</span>
                 </button>
 
                 <button
-                    onClick={() => setIsCupMode(true)}
+                    onClick={() => { setMainMode('doubles'); setIsCupMode(false); }}
                     className={clsx(
-                        "flex flex-col items-center gap-1 transition-all",
-                        isCupMode ? "text-blue-500 scale-110" : "text-neutral-500"
+                        "flex flex-col items-center gap-1 transition-all px-2",
+                        mainMode === 'doubles' && !isCupMode ? "scale-110" : "opacity-40 grayscale"
                     )}
                 >
-                    <Trophy size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Copa</span>
+                    <span className="text-2xl">💑</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Parejas</span>
                 </button>
 
                 <button
-                    onClick={() => setShowRoulette(true)}
-                    className="flex flex-col items-center gap-1 text-neutral-500 active:text-white"
+                    onClick={() => { setMainMode('singles'); setIsCupMode(true); }}
+                    className={clsx(
+                        "flex flex-col items-center gap-1 transition-all px-2",
+                        mainMode === 'singles' && isCupMode ? "scale-110" : "opacity-40 grayscale"
+                    )}
                 >
-                    <Dices size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Ruleta</span>
+                    <span className="text-2xl">🏆</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Copa</span>
+                </button>
+
+                <button
+                    onClick={() => { setMainMode('doubles'); setIsCupMode(true); }}
+                    className={clsx(
+                        "flex flex-col items-center gap-1 transition-all px-2",
+                        mainMode === 'doubles' && isCupMode ? "scale-110" : "opacity-40 grayscale"
+                    )}
+                >
+                    <span className="text-2xl">🏆💑</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-400">Copa ♥</span>
                 </button>
 
                 <Link
                     to="/stats"
-                    className="flex flex-col items-center gap-1 text-neutral-500"
+                    className="flex flex-col items-center gap-1 text-neutral-500 px-2"
                 >
-                    <User size={28} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Historico</span>
+                    <span className="text-2xl">👤</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter">Histórico</span>
                 </Link>
             </div>
 

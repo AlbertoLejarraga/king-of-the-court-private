@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { Trophy, Gauge } from 'lucide-react'
 import clsx from 'clsx'
 import type { DoublesLeagueStanding, DoublesTotalWinRank } from '../types'
 
@@ -27,7 +26,7 @@ export function DoublesDayWinnersBoard() {
         <div className="bg-gradient-to-br from-blue-900/40 to-neutral-900/80 rounded-[2.5rem] p-6 border border-blue-500/20 shadow-xl overflow-hidden flex flex-col h-full relative group">
             <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
             <h3 className="text-xl font-black text-blue-500 mb-4 flex items-center gap-3 uppercase tracking-wide border-b border-blue-500/20 pb-3">
-                <Trophy size={28} /> Reyes del Día (Parejas)
+                <span className="text-2xl">🏆</span> Reyes del Día (Parejas)
             </h3>
             <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1">
                 {dayWinners.length === 0 && <p className="text-neutral-500 text-lg italic text-center mt-10">Sin datos.</p>}
@@ -68,7 +67,7 @@ export function DoublesTotalWinsBoard() {
     return (
         <div className="bg-neutral-900/80 rounded-[2.5rem] p-6 border border-neutral-800 shadow-xl overflow-hidden flex flex-col h-full">
             <h3 className="text-xl font-black text-neutral-400 mb-4 flex items-center gap-3 uppercase tracking-wide border-b border-neutral-800 pb-3">
-                <Gauge size={28} /> Victorias Totales (Parejas)
+                <span className="text-2xl">📊</span> Victorias Totales (Parejas)
             </h3>
             <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1">
                 {matchWinners.map((p, i) => (

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import type { DailyStat } from '../types'
-import { Crown, Flame } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -71,7 +70,7 @@ export default function Leaderboard() {
                 {/* Daily Bonus Tracker */}
                 <div className="bg-neutral-800/50 backdrop-blur-md border border-neutral-700 rounded-2xl p-4 flex items-center gap-4">
                     <div className="bg-blue-500/20 p-3 rounded-full text-blue-400">
-                        <Flame size={32} fill="currentColor" />
+                        <span className="text-3xl">🔥</span>
                     </div>
                     <div>
                         <div className="text-xs text-neutral-400 uppercase font-bold">Longest Streak Reward (2pts)</div>
@@ -117,7 +116,7 @@ export default function Leaderboard() {
                                     </h2>
                                     {stat.player_id === kingId && (
                                         <div className="bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase flex items-center gap-1 animate-pulse">
-                                            <Crown size={14} fill="black" /> Current King
+                                            👑 Current King
                                         </div>
                                     )}
                                     {stat.max_streak === todayTopStreak && todayTopStreak > 0 && (

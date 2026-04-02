@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import type { Player, DoublesTeam } from '../types'
-import { Trophy, Users, Play, RefreshCw, ChevronRight, CheckCircle2, AlertCircle, Undo2, X } from 'lucide-react'
+import { Undo2, X } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -383,7 +383,7 @@ export default function DoublesCupManager() {
         else fetchInitialData()
     }
 
-    if (loading && !cup) return <div className="flex items-center justify-center h-full min-h-[400px]"><RefreshCw className="animate-spin text-blue-500" size={48} /></div>
+    if (loading && !cup) return <div className="flex items-center justify-center h-full min-h-[400px]"><span className="text-5xl animate-spin">⏳</span></div>
 
     // --- SETUP VIEW ---
     if (!cup || cup.status === 'setup') {
@@ -394,14 +394,14 @@ export default function DoublesCupManager() {
             <div className="flex flex-col h-full gap-8 p-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-4xl font-black text-white flex items-center gap-4">
-                        <Users size={40} className="text-blue-500" /> Copa de Parejas (Sorteo Nivelado)
+                        <span className="text-4xl">🏆💑</span> Copa de Parejas (Sorteo Nivelado)
                     </h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
                     <div className="bg-neutral-900/50 rounded-[2rem] border border-green-500/20 p-6 flex flex-col min-h-0 shadow-xl">
                         <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center justify-between">
-                            <span className="flex items-center gap-3"><CheckCircle2 size={24} /> Inscritos ({included.length})</span>
+                            <span className="flex items-center gap-3"><span className="text-xl">✅</span> Inscritos ({included.length})</span>
                             {selectedPlayerIds.size % 2 !== 0 && (
                                 <span className="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded-full border border-red-500/50">Impar</span>
                             )}
@@ -418,7 +418,7 @@ export default function DoublesCupManager() {
                                         <span className="text-lg font-bold text-white uppercase">{p.name}</span>
                                         <span className="text-[10px] text-neutral-500 bg-neutral-900 px-2 py-0.5 rounded-full block">WR: {(playerStats[p.id]?.winPct * 100 || 0).toFixed(0)}%</span>
                                     </div>
-                                    <ChevronRight className="text-neutral-600 group-hover:text-green-500 transition-colors" />
+                                    <span className="text-neutral-600 group-hover:text-green-500 transition-colors">›</span>
                                 </motion.button>
                             ))}
                         </div>
@@ -426,7 +426,7 @@ export default function DoublesCupManager() {
 
                     <div className="bg-neutral-900/50 rounded-[2rem] border border-red-500/20 p-6 flex flex-col min-h-0 shadow-xl">
                         <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-3">
-                            <AlertCircle size={24} /> Fuera de Pista ({excluded.length})
+                            <span className="text-xl">⛔</span> Fuera de Pista ({excluded.length})
                         </h3>
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 pr-2">
                             {excluded.map(p => (
@@ -437,7 +437,7 @@ export default function DoublesCupManager() {
                                     className="w-full flex justify-between items-center p-3 bg-neutral-800/20 hover:bg-neutral-800/50 rounded-xl border border-neutral-800 transition-all group"
                                 >
                                     <span className="text-lg font-bold text-neutral-500 uppercase">{p.name}</span>
-                                    <ChevronRight className="rotate-180 text-neutral-700 group-hover:text-red-500 transition-colors" />
+                                    <span className="rotate-180 text-neutral-700 group-hover:text-red-500 transition-colors">›</span>
                                 </motion.button>
                             ))}
 
@@ -471,7 +471,7 @@ export default function DoublesCupManager() {
                         disabled={selectedPlayerIds.size < 4 || selectedPlayerIds.size % 2 !== 0}
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:grayscale text-white px-12 py-6 rounded-3xl font-black text-2xl uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-4"
                     >
-                        <Play fill="currentColor" /> {selectedPlayerIds.size % 2 !== 0 ? 'Jugadores Impares' : 'Mezclar y Sortear'}
+                        <span className="text-2xl">▶️</span> {selectedPlayerIds.size % 2 !== 0 ? 'Jugadores Impares' : 'Mezclar y Sortear'}
                     </button>
                 </div>
             </div>
@@ -618,7 +618,7 @@ function GroupCard({ name, teams, matches, playerStats, onReport, onUndo }: any)
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
                     <h4 className="text-sm font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-2">
-                        <Play size={14} fill="currentColor" /> Partidos
+                        <span className="text-sm">▶️</span> Partidos
                     </h4>
 
                     <div className="space-y-2 flex flex-col">
@@ -680,7 +680,7 @@ function FinalPhaseCard({ cup, standingsA, standingsB, standingsC, hasGroupC, ma
         return (
             <div className="flex-1 bg-neutral-900/50 rounded-[2.5rem] border border-neutral-800 p-6 flex flex-col items-center justify-center text-center opacity-50 grayscale transition-all hover:grayscale-0 hover:bg-neutral-800/80 group">
                 <h3 className="text-xl font-bold text-neutral-500 group-hover:text-blue-400 mb-4 uppercase tracking-widest">Fase Final</h3>
-                <Trophy size={64} className="mb-4 text-neutral-600 group-hover:text-blue-500 animate-pulse" />
+                <span className="text-6xl mb-4 animate-pulse">🏆</span>
                 <p className="text-sm text-neutral-600 uppercase font-black group-hover:text-neutral-400">Termina los grupos para activar</p>
             </div>
         )
@@ -850,7 +850,7 @@ function VictoryModal({ cup, teams, onClose }: any) {
                     <button onClick={() => onClose(false)} className="absolute top-6 right-6 text-neutral-500 hover:text-white bg-neutral-800/50 hover:bg-neutral-700/50 p-3 rounded-full transition-colors"><X size={24} /></button>
 
                     <motion.div animate={{ y: [0, -20, 0], scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 3 }} className="mb-8 flex justify-center">
-                        <Trophy size={120} className="text-yellow-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.8)]" />
+                        <span className="text-[120px] drop-shadow-[0_0_20px_rgba(234,179,8,0.8)]">🏆</span>
                     </motion.div>
 
                     <h2 className="text-2xl md:text-3xl font-bold text-yellow-500 uppercase tracking-[0.2em] mb-4">Campeones {cup.name}</h2>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import type { DailyStat } from '../types'
-import { Crown, Flame, Trophy, Gauge, User, X, Dices, LayoutDashboard, MoreVertical } from 'lucide-react'
+import type { DailyStat, DoublesDailyStat } from '../types'
+import { Crown, Flame, Trophy, Gauge, User, X, Dices, LayoutDashboard, MoreVertical, Users } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import MatchReporter from './MatchReporter'
+import DoublesMatchReporter from './DoublesMatchReporter'
+import { DoublesDayWinnersBoard, DoublesTotalWinsBoard } from '../components/DoublesComponents'
 import QRCode from "react-qr-code";
 import { Link } from 'react-router-dom'
 import Escudo from '../assets/Escudo_UDSanse.png'
@@ -272,9 +274,18 @@ function DayResultModal({ result, onClose }: { result: { bonusWinner: { name: st
 
 
 export default function Dashboard() {
+    const [mainMode, setMainMode] = useState<'singles' | 'doubles'>('singles')
+    
+    // Singles State
     const [stats, setStats] = useState<DailyStat[]>([])
     const [kingId, setKingId] = useState<string | null>(null)
     const [maxStreakPlayer, setMaxStreakPlayer] = useState<{ name: string, streak: number } | null>(null)
+    
+    // Doubles State
+    const [doublesStats, setDoublesStats] = useState<DoublesDailyStat[]>([])
+    const [doublesKingId, setDoublesKingId] = useState<string | null>(null)
+    const [maxStreakTeam, setMaxStreakTeam] = useState<{ name: string, streak: number } | null>(null)
+
     const [dayResult, setDayResult] = useState<{
         bonusWinner: { name: string, streak: number },
         dayWinner: { name: string, points: number }
@@ -289,15 +300,18 @@ export default function Dashboard() {
         fetchData()
         const channel = supabase.channel('dashboard_realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_stats' }, () => {
-                console.log('Stats updated')
                 fetchData()
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
-                console.log('Match inserted')
                 fetchData()
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'cups' }, () => {
-                console.log('Cup updated')
+                fetchData()
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'doubles_daily_stats' }, () => {
+                fetchData()
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'doubles_matches' }, () => {
                 fetchData()
             })
             .subscribe()
@@ -309,7 +323,7 @@ export default function Dashboard() {
         console.log("Fetching Data...")
         const today = new Date().toISOString().split('T')[0]
 
-        // 1. Get Stats (Daily Ranking)
+        // 1. Get Singles Stats
         const { data: statsData } = await supabase
             .from('daily_stats')
             .select('*, player:players(*)')
@@ -317,27 +331,44 @@ export default function Dashboard() {
             .order('points', { ascending: false })
 
         if (statsData) {
-            // @ts-ignore
-            setStats(statsData)
-            // @ts-ignore
-            const topStreak = statsData.reduce((prev, current) => (current.max_streak > prev.max_streak ? current : prev), { max_streak: 0 })
+            setStats(statsData as any)
+            const topStreak = statsData.reduce((prev: any, current: any) => (current.max_streak > prev.max_streak ? current : prev), { max_streak: 0 })
             if (topStreak.max_streak > 0) {
-                setMaxStreakPlayer({
-                    name: topStreak.player.name,
-                    streak: topStreak.max_streak
-                })
+                setMaxStreakPlayer({ name: topStreak.player.name, streak: topStreak.max_streak })
             } else {
                 setMaxStreakPlayer(null)
             }
         } else {
-            setStats([]) // Clear if null
+            setStats([])
         }
 
-        // 2. Get King
+        // 2. Get Doubles Stats
+        const { data: dStatsData } = await supabase
+            .from('doubles_daily_stats')
+            .select('*, team:doubles_teams(*)')
+            .eq('date', today)
+            .order('points', { ascending: false })
+
+        if (dStatsData) {
+            setDoublesStats(dStatsData as any)
+            const dTopStreak = dStatsData.reduce((prev: any, current: any) => (current.max_streak > prev.max_streak ? current : prev), { max_streak: 0 })
+            if (dTopStreak.max_streak > 0) {
+                setMaxStreakTeam({ name: dTopStreak.team.name, streak: dTopStreak.max_streak })
+            } else {
+                setMaxStreakTeam(null)
+            }
+        } else {
+            setDoublesStats([])
+        }
+
+        // 3. Get Kings
         const { data: kingData } = await supabase.from('current_king').select('player_id').single()
         if (kingData) setKingId(kingData.player_id)
+            
+        const { data: dKingData } = await supabase.from('doubles_current_king').select('team_id').single()
+        if (dKingData) setDoublesKingId(dKingData.team_id)
 
-        // 3. Auto-switch to Cup Mode if there's an active cup and we haven't checked yet
+        // 4. Checking Cup Mode
         if (!hasCheckedActiveCup) {
             const { data: activeCup } = await supabase
                 .from('cups')
@@ -357,9 +388,10 @@ export default function Dashboard() {
     }
 
     async function closeDay() {
-        if (!confirm("¿CERRAR EL DÍA? \n\nEsto reiniciará el ranking diario a CERO (visualmente) y otorgará los bonus.")) return;
+        if (!confirm(`¿CERRAR EL DÍA EN MODO ${mainMode === 'singles' ? 'INDIVIDUAL' : 'PAREJAS'}? \n\nEsto reiniciará el ranking diario a CERO (visualmente) y otorgará los bonus.`)) return;
 
-        const { data, error } = await supabase.rpc('close_day_bonus')
+        const rpcFunction = mainMode === 'singles' ? 'close_day_bonus' : 'close_doubles_day_bonus';
+        const { data, error } = await supabase.rpc(rpcFunction)
 
         if (error) {
             alert('Error: ' + error.message)
@@ -424,39 +456,53 @@ export default function Dashboard() {
         <div className="min-h-screen md:h-screen w-full bg-[#050505] text-white p-6 md:p-8 overflow-y-auto md:overflow-hidden font-sans flex flex-col">
 
             {/* Header */}
-            <div className="relative flex justify-between items-center mb-6 shrink-0">
-                <div className="flex items-center gap-4 md:gap-8 z-10">
-                    <div className="bg-gradient-to-b from-yellow-400 to-orange-600 h-16 w-3 rounded-full shadow-[0_0_20px_orange]"></div>
-                    <div>
-                        <h1 className="text-3xl md:text-5xl lg:text-6xl xl:text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500 uppercase">
+            <div className="flex justify-between items-center mb-6 shrink-0 gap-4">
+                {/* Left: Title */}
+                <div className="flex items-center gap-3 md:gap-6 z-10 flex-1 min-w-0">
+                    <div className="bg-gradient-to-b from-yellow-400 to-orange-600 h-10 md:h-16 w-2 md:w-3 rounded-full shadow-[0_0_20px_orange] shrink-0"></div>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500 uppercase truncate">
                             {isCupMode ? cupName : "King of the Court"}
                         </h1>
                     </div>
                 </div>
 
-                {/* PC: Centered Logo - Only on very wide screens */}
-                <div className="hidden 2xl:flex absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none z-0">
-                    <img src={Escudo} alt="Escudo UD Sanse" className="h-24 object-contain opacity-80" />
-                </div>
-
-                <div className="flex items-center gap-3 md:gap-6 z-10">
-                    {/* Mobile & Medium Screens: Logo in top right - Visible until 2xl */}
-                    <img src={Escudo} alt="Escudo UD Sanse" className="2xl:hidden h-16 md:h-24 w-auto object-contain" />
-
+                {/* Right: Controls & Logo */}
+                <div className="flex items-center gap-3 md:gap-6 z-10 shrink-0">
                     <PingPongClock />
 
-                    {/* Cup Mode Toggle - Always visible */}
-                    <button
-                        onClick={() => setIsCupMode(!isCupMode)}
-                        className={clsx(
-                            "hidden md:flex px-6 py-4 rounded-3xl font-bold transition-all border items-center gap-3 text-xl whitespace-nowrap",
-                            isCupMode
-                                ? "bg-blue-600/20 border-blue-500 text-blue-400 hover:bg-blue-600/30"
-                                : "bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 border-neutral-700"
-                        )}
-                    >
-                        <Trophy size={18} /> {isCupMode ? "Modo Normal" : "Modo Copa"}
-                    </button>
+                    <img src={Escudo} alt="Escudo UD Sanse" className="h-12 md:h-20 xl:h-24 w-auto object-contain shrink-0" />
+
+                    {/* Mode Toggles */}
+                    <div className="hidden md:flex bg-neutral-800/80 rounded-3xl border border-neutral-700 p-1">
+                        <button
+                            onClick={() => { setMainMode('singles'); setIsCupMode(false); }}
+                            className={clsx(
+                                "px-5 py-3 rounded-[1.25rem] font-bold transition-all text-lg",
+                                mainMode === 'singles' && !isCupMode ? "bg-white text-black shadow-md" : "text-neutral-400 hover:text-white"
+                            )}
+                        >
+                            Individual
+                        </button>
+                        <button
+                            onClick={() => { setMainMode('doubles'); setIsCupMode(false); }}
+                            className={clsx(
+                                "px-5 py-3 rounded-[1.25rem] font-bold transition-all text-lg flex items-center gap-2",
+                                mainMode === 'doubles' && !isCupMode ? "bg-blue-500 text-white shadow-md shadow-blue-500/20" : "text-neutral-400 hover:text-white"
+                            )}
+                        >
+                            <Users size={18} /> Parejas
+                        </button>
+                        <button
+                            onClick={() => setIsCupMode(true)}
+                            className={clsx(
+                                "px-5 py-3 rounded-[1.25rem] font-bold transition-all text-lg flex items-center gap-2",
+                                isCupMode ? "bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-500/20" : "text-neutral-400 hover:text-white"
+                            )}
+                        >
+                            <Trophy size={18} /> Modo Copa
+                        </button>
+                    </div>
 
                     {/* Roulette Button - Always visible on laptop/desktop */}
                     <button
@@ -526,13 +572,19 @@ export default function Dashboard() {
                             {/* Header */}
                             <div className="flex justify-between items-center p-6 border-b border-neutral-800/50 mb-4">
                                 <div className="flex items-center gap-2 md:gap-4">
-                                    <div className="w-3 h-3 md:w-4 md:h-4 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]"></div>
-                                    <h2 className="text-xl md:text-3xl font-bold text-neutral-200 tracking-tight">EN VIVO</h2>
+                                    <div className={clsx("w-3 h-3 md:w-4 md:h-4 rounded-full animate-pulse shadow-[0_0_15px_red]", mainMode === 'doubles' ? "bg-blue-500 shadow-blue-500" : "bg-red-500 shadow-red-500")}></div>
+                                    <h2 className="text-xl md:text-3xl font-bold text-neutral-200 tracking-tight">EN VIVO {mainMode === 'doubles' && <span className="text-blue-500 text-sm md:text-xl ml-2">PAREJAS</span>}</h2>
                                 </div>
-                                {maxStreakPlayer && (
+                                {mainMode === 'singles' && maxStreakPlayer && (
                                     <div className="flex items-center gap-1 md:gap-2 bg-blue-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-blue-500/20">
                                         <Flame size={16} className="text-blue-400 md:w-5 md:h-5" />
                                         <span className="text-blue-300 text-[10px] md:text-sm font-bold uppercase truncate max-w-[120px] md:max-w-[200px]">Racha: {maxStreakPlayer.name} ({maxStreakPlayer.streak})</span>
+                                    </div>
+                                )}
+                                {mainMode === 'doubles' && maxStreakTeam && (
+                                    <div className="flex items-center gap-1 md:gap-2 bg-blue-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-blue-500/20">
+                                        <Flame size={16} className="text-blue-400 md:w-5 md:h-5" />
+                                        <span className="text-blue-300 text-[10px] md:text-sm font-bold uppercase truncate max-w-[120px] md:max-w-[200px]">Racha: {maxStreakTeam.name} ({maxStreakTeam.streak})</span>
                                     </div>
                                 )}
                             </div>
@@ -540,11 +592,14 @@ export default function Dashboard() {
                             {/* Ranking List */}
                             <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar space-y-4">
                                 <AnimatePresence mode='popLayout'>
-                                    {stats.map((stat, index) => {
-                                        const isKing = stat.player_id === kingId;
+                                    {(mainMode === 'singles' ? stats : doublesStats).map((stat: any, index) => {
+                                        const isKing = mainMode === 'singles' ? stat.player_id === kingId : stat.team_id === doublesKingId;
+                                        const entityName = mainMode === 'singles' ? stat.player?.name : stat.team?.name?.replace(' & ', ' ♥ ');
+                                        const itemKey = mainMode === 'singles' ? stat.player_id : stat.team_id;
+                                        
                                         return (
                                             <motion.div
-                                                key={stat.player_id}
+                                                key={itemKey}
                                                 layout
                                                 initial={{ opacity: 0, x: -20 }}
                                                 animate={{ opacity: 1, x: 0 }}
@@ -552,19 +607,19 @@ export default function Dashboard() {
                                                 className={clsx(
                                                     "relative flex items-center p-5 rounded-3xl border-l-[8px] transition-all shadow-xl",
                                                     isKing
-                                                        ? "bg-gradient-to-r from-yellow-950/60 to-neutral-900 border-yellow-500 py-6"
+                                                        ? (mainMode === 'singles' ? "bg-gradient-to-r from-yellow-950/60 to-neutral-900 border-yellow-500 py-6" : "bg-gradient-to-r from-blue-950/60 to-neutral-900 border-blue-500 py-6")
                                                         : "bg-neutral-800/40 border-neutral-700 hover:bg-neutral-800/60"
                                                 )}
                                             >
-                                                <div className={clsx("w-10 md:w-16 text-center font-black italic text-2xl md:text-5xl", isKing ? "text-yellow-500" : "text-neutral-600")}>
+                                                <div className={clsx("w-10 md:w-16 text-center font-black italic text-2xl md:text-5xl", isKing ? (mainMode === 'singles' ? "text-yellow-500" : "text-blue-500") : "text-neutral-600")}>
                                                     #{index + 1}
                                                 </div>
                                                 <div className="flex-1 pl-3 md:pl-6 min-w-0">
                                                     <div className="flex items-center gap-2 md:gap-3">
                                                         <span className={clsx("text-xl md:text-4xl font-bold tracking-tight truncate", isKing ? "text-white" : "text-neutral-300")}>
-                                                            {stat.player?.name}
+                                                            {entityName}
                                                         </span>
-                                                        {isKing && <Crown size={24} fill="currentColor" className="text-yellow-500 shrink-0 md:w-8 md:h-8" />}
+                                                        {isKing && <Crown size={24} fill="currentColor" className={clsx("shrink-0 md:w-8 md:h-8", mainMode === 'singles' ? "text-yellow-500" : "text-blue-500")} />}
                                                     </div>
                                                     <div className="flex gap-3 md:gap-6 font-bold text-neutral-500 mt-1 md:mt-2 uppercase tracking-wider overflow-hidden">
                                                         <span className="text-green-500 text-sm md:text-xl whitespace-nowrap">{stat.wins} W</span>
@@ -582,7 +637,7 @@ export default function Dashboard() {
                                         )
                                     })}
                                 </AnimatePresence>
-                                {stats.length === 0 && (
+                                {(mainMode === 'singles' ? stats.length : doublesStats.length) === 0 && (
                                     <div className="h-full flex flex-col items-center justify-center opacity-30 mt-20">
                                         <Trophy size={80} className="mb-4" />
                                         <span className="text-3xl font-bold">Esperando jugadores...</span>
@@ -594,10 +649,10 @@ export default function Dashboard() {
                         {/* COL 2: Kings + Total (Desktop Only) */}
                         <div className="hidden md:flex col-span-1 md:col-span-3 flex-col gap-8 min-h-0">
                             <div className="flex-1 min-h-0">
-                                <DayWinnersBoard />
+                                {mainMode === 'singles' ? <DayWinnersBoard /> : <DoublesDayWinnersBoard />}
                             </div>
                             <div className="flex-1 min-h-0">
-                                <TotalWinsBoard />
+                                {mainMode === 'singles' ? <TotalWinsBoard /> : <DoublesTotalWinsBoard />}
                             </div>
                         </div>
 
@@ -605,9 +660,9 @@ export default function Dashboard() {
                         <div className="order-1 md:order-none col-span-1 md:col-span-3 flex flex-col gap-8 min-h-0">
                             {/* Reporter */}
                             <div className="flex-auto h-auto min-h-[350px] md:min-h-0 bg-neutral-900 rounded-[3rem] border border-neutral-800 p-2 shadow-2xl relative overflow-hidden flex flex-col justify-center">
-                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                                <div className={clsx("absolute top-0 left-0 w-full h-2 bg-gradient-to-r", mainMode === 'singles' ? "from-blue-500 to-indigo-500" : "from-green-500 to-blue-500")}></div>
                                 <div className="p-4">
-                                    <MatchReporter onSuccess={fetchData} />
+                                    {mainMode === 'singles' ? <MatchReporter onSuccess={fetchData} /> : <DoublesMatchReporter onSuccess={fetchData} />}
                                 </div>
                             </div>
 
@@ -619,6 +674,15 @@ export default function Dashboard() {
                                 >
                                     Cerrar Día
                                 </button>
+                                
+                                <div className="mt-4 flex gap-2">
+                                    <button
+                                        onClick={() => { setMainMode(mainMode === 'singles' ? 'doubles' : 'singles'); setIsCupMode(false); }}
+                                        className="flex-1 bg-neutral-800 border border-neutral-700 text-neutral-300 px-4 py-4 rounded-3xl font-bold uppercase tracking-widest text-lg transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Users size={24} /> {mainMode === 'singles' ? 'Ir Parejas' : 'Ir Indiv.'}
+                                    </button>
+                                </div>
 
                                 <button
                                     onClick={() => setShowRoulette(true)}
@@ -650,10 +714,10 @@ export default function Dashboard() {
                         {/* NEW: Mobile Bottom Info Sections (Below En Vivo) */}
                         <div className="order-4 md:hidden flex flex-col gap-6">
                             <div className="h-[500px]">
-                                <DayWinnersBoard />
+                                {mainMode === 'singles' ? <DayWinnersBoard /> : <DoublesDayWinnersBoard />}
                             </div>
                             <div className="h-[500px]">
-                                <TotalWinsBoard />
+                                {mainMode === 'singles' ? <TotalWinsBoard /> : <DoublesTotalWinsBoard />}
                             </div>
                         </div>
                     </>

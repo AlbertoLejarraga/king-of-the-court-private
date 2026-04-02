@@ -72,14 +72,22 @@ export function DoublesTotalWinsBoard() {
             </h3>
             <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1">
                 {matchWinners.map((p, i) => (
-                    <div key={p.team_id} className="flex justify-between items-center text-lg p-2 hover:bg-white/5 rounded-xl transition-colors">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <span className="text-neutral-600 font-mono w-6 text-right text-xl">{i + 1}.</span>
-                            <span className="text-neutral-300 font-bold truncate text-xl">{p.name.replace(' & ', ' ♥ ')}</span>
+                    <div key={p.team_id} className="flex justify-between items-center p-2 hover:bg-white/5 rounded-xl transition-colors">
+                        <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-3">
+                                <span className="text-neutral-600 font-mono w-6 text-right text-xl">{i + 1}.</span>
+                                <span className="text-neutral-300 font-bold truncate text-lg pb-1">{p.name.replace(' & ', ' ♥ ')}</span>
+                            </div>
+                            <div className="flex items-center gap-2 pl-12 -mt-1 text-[10px] md:text-sm text-neutral-500 font-mono truncate">
+                                <span title={`Histórico Individual: ${p.p1_name}`}>({p.p2_win_pct}%)</span>
+                                <span>•</span>
+                                <span title={`Histórico Individual: ${p.p2_name}`}>({p.p1_win_pct}%)</span>
+                                <span className="ml-2 text-blue-400 font-bold" title="Media del Equipo">AVG: {p.team_avg_win_pct}%</span>
+                            </div>
                         </div>
-                        <div className="flex items-baseline gap-3">
+                        <div className="flex items-center gap-3 shrink-0">
                             <span className="text-white font-bold text-xl">{p.total_wins}</span>
-                            <span className="text-neutral-500 font-mono text-sm bg-neutral-800 px-2 py-0.5 rounded-md min-w-[3.5rem] text-center">
+                            <span className="text-neutral-500 font-mono text-sm bg-neutral-800 px-2 py-0.5 rounded-md min-w-[3.5rem] text-center" title="Winrate del Equipo (Partidos Jugados Juntos)">
                                 {p.win_percentage}%
                             </span>
                         </div>

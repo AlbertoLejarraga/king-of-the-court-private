@@ -60,6 +60,13 @@ export interface DoublesTotalWinRank {
     name: string
     total_wins: number
     win_percentage: number
+    p1_name: string
+    p2_name: string
+    p1_win_pct: number
+    p2_win_pct: number
+    p1_wr: number
+    p2_wr: number
+    team_avg_win_pct: number
 }
 
 export interface LeagueStanding {

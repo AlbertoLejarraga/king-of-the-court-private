@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import Escudo from '../assets/Escudo_UDSanse.png'
 import RouletteModal from '../components/RouletteModal'
 import CupManager from '../components/CupManager'
+import DoublesCupManager from '../components/DoublesCupManager'
 
 // --- Types ---
 interface GlobalRank {
@@ -474,33 +475,46 @@ export default function Dashboard() {
                     <img src={Escudo} alt="Escudo UD Sanse" className="h-12 md:h-20 xl:h-24 w-auto object-contain shrink-0" />
 
                     {/* Mode Toggles */}
-                    <div className="hidden md:flex bg-neutral-800/80 rounded-3xl border border-neutral-700 p-1">
+                    <div className="hidden md:flex bg-neutral-800/80 rounded-3xl border border-neutral-700 p-1 gap-1">
                         <button
                             onClick={() => { setMainMode('singles'); setIsCupMode(false); }}
+                            title="Individual"
                             className={clsx(
-                                "px-5 py-3 rounded-[1.25rem] font-bold transition-all text-lg",
-                                mainMode === 'singles' && !isCupMode ? "bg-white text-black shadow-md" : "text-neutral-400 hover:text-white"
+                                "px-4 py-3 rounded-[1.25rem] font-bold transition-all text-2xl",
+                                mainMode === 'singles' && !isCupMode ? "bg-white text-black shadow-md" : "grayscale opacity-50 hover:opacity-100 hover:grayscale-0"
                             )}
                         >
-                            Individual
+                            🏓
                         </button>
                         <button
                             onClick={() => { setMainMode('doubles'); setIsCupMode(false); }}
+                            title="Parejas"
                             className={clsx(
-                                "px-5 py-3 rounded-[1.25rem] font-bold transition-all text-lg flex items-center gap-2",
-                                mainMode === 'doubles' && !isCupMode ? "bg-blue-500 text-white shadow-md shadow-blue-500/20" : "text-neutral-400 hover:text-white"
+                                "px-4 py-3 rounded-[1.25rem] font-bold transition-all text-2xl",
+                                mainMode === 'doubles' && !isCupMode ? "bg-blue-500 shadow-md shadow-blue-500/20" : "grayscale opacity-50 hover:opacity-100 hover:grayscale-0"
                             )}
                         >
-                            <Users size={18} /> Parejas
+                            💑
                         </button>
                         <button
-                            onClick={() => setIsCupMode(true)}
+                            onClick={() => { setMainMode('singles'); setIsCupMode(true); }}
+                            title="Copa Individual"
                             className={clsx(
-                                "px-5 py-3 rounded-[1.25rem] font-bold transition-all text-lg flex items-center gap-2",
-                                isCupMode ? "bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-500/20" : "text-neutral-400 hover:text-white"
+                                "px-4 py-3 rounded-[1.25rem] font-bold transition-all text-2xl",
+                                mainMode === 'singles' && isCupMode ? "bg-yellow-500 text-black shadow-md shadow-yellow-500/20" : "grayscale opacity-50 hover:opacity-100 hover:grayscale-0"
                             )}
                         >
-                            <Trophy size={18} /> Modo Copa
+                            🏆
+                        </button>
+                        <button
+                            onClick={() => { setMainMode('doubles'); setIsCupMode(true); }}
+                            title="Copa Parejas"
+                            className={clsx(
+                                "px-4 py-3 rounded-[1.25rem] font-bold transition-all text-2xl flex items-center gap-0.5",
+                                mainMode === 'doubles' && isCupMode ? "bg-gradient-to-r from-yellow-500 to-blue-500 text-black shadow-md shadow-blue-500/20" : "grayscale opacity-50 hover:opacity-100 hover:grayscale-0"
+                            )}
+                        >
+                            🏆💑
                         </button>
                     </div>
 
@@ -561,7 +575,7 @@ export default function Dashboard() {
 
                 {isCupMode ? (
                     <div className="col-span-12 h-full min-h-0">
-                        <CupManager />
+                        {mainMode === 'singles' ? <CupManager /> : <DoublesCupManager />}
                     </div>
                 ) : (
                     <>

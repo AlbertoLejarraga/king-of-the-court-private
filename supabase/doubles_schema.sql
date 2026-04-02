@@ -54,23 +54,56 @@ create table if not exists public.doubles_league_standings (
     team_id uuid references public.doubles_teams(id) on delete cascade primary key,
     day_wins int default 0,
     total_points float default 0,
+    cup_wins int default 0,
     last_updated timestamptz default now()
 );
 
--- 6. Vista para "Victorias Totales" de Parejas
-create or replace view public.doubles_total_wins as
-select
-    t.id as team_id,
-    t.name,
-    count(m.id) filter (where m.winner_team_id = t.id) as total_wins,
+-- 6. Helper View for individual player win percentages
+create or replace view public.player_win_percentages as
+select 
+    p.id as player_id,
+    p.name,
     count(m.id) as total_matches,
-    case
-        when count(m.id) = 0 then 0
-        else round((count(m.id) filter (where m.winner_team_id = t.id)::numeric / count(m.id)::numeric) * 100, 2)
-    end as win_percentage
-from public.doubles_teams t
-left join public.doubles_matches m on m.winner_team_id = t.id or m.loser_team_id = t.id
-group by t.id, t.name;
+    count(m.id) filter (where m.winner_id = p.id) as wins,
+    case when count(m.id) = 0 then 0
+    else round((count(m.id) filter (where m.winner_id = p.id)::numeric / count(m.id)::numeric) * 100, 2)
+    end as win_pct
+from public.players p
+left join public.matches m on (m.winner_id = p.id or m.loser_id = p.id)
+group by p.id, p.name;
+
+-- 6b. Vista para "Victorias Totales" de Parejas
+create or replace view public.doubles_total_wins as
+with team_stats as (
+    select
+        t.id as team_id,
+        t.name,
+        t.player1_id,
+        t.player2_id,
+        count(m.id) filter (where m.winner_team_id = t.id) as total_wins,
+        count(m.id) as total_matches,
+        case
+            when count(m.id) = 0 then 0
+            else round((count(m.id) filter (where m.winner_team_id = t.id)::numeric / count(m.id)::numeric) * 100, 2)
+        end as win_percentage
+    from public.doubles_teams t
+    left join public.doubles_matches m on (m.winner_team_id = t.id or m.loser_team_id = t.id)
+    group by t.id, t.name, t.player1_id, t.player2_id
+)
+select 
+    ts.team_id,
+    ts.name,
+    ts.total_wins,
+    ts.total_matches,
+    ts.win_percentage,
+    p1.name as p1_name,
+    coalesce(p1.win_pct, 0) as p1_win_pct,
+    p2.name as p2_name,
+    coalesce(p2.win_pct, 0) as p2_win_pct,
+    round((coalesce(p1.win_pct, 0) + coalesce(p2.win_pct, 0)) / 2.0, 2) as team_avg_win_pct
+from team_stats ts
+left join public.player_win_percentages p1 on ts.player1_id = p1.player_id
+left join public.player_win_percentages p2 on ts.player2_id = p2.player_id;
 
 -- 7. Función Principal para Reportar Partido (Lógica V2 adaptada a Equipos)
 create or replace function public.report_doubles_match(
@@ -324,3 +357,175 @@ begin
     exception when duplicate_object then null;
     end;
 end $$;
+
+-- 10. Doubles Cup Mode
+alter table public.doubles_matches add column if not exists match_type text default 'regular';
+alter table public.doubles_matches add column if not exists cup_phase text;
+alter table public.doubles_matches add column if not exists cup_id uuid;
+
+create table if not exists public.doubles_cups (
+    id uuid primary key default uuid_generate_v4(),
+    name text default 'Matapi''s Cup 2025',
+    status text default 'setup', -- setup, groups, finals, finished
+    finals_mode text default 'none', -- none, semi_final_final, third_fourth_semi_final, only_final
+    created_at timestamptz default now(),
+    winner_team_id uuid references public.doubles_teams(id)
+);
+
+create table if not exists public.doubles_cup_teams (
+    cup_id uuid references public.doubles_cups(id) on delete cascade,
+    team_id uuid references public.doubles_teams(id) on delete cascade,
+    group_name text,
+    primary key (cup_id, team_id)
+);
+
+alter table public.doubles_matches drop constraint if exists fk_doubles_matches_cup;
+alter table public.doubles_matches add constraint fk_doubles_matches_cup foreign key (cup_id) references public.doubles_cups(id) on delete cascade;
+
+alter table public.doubles_cups enable row level security;
+alter table public.doubles_cup_teams enable row level security;
+
+drop policy if exists "Allow public read" on public.doubles_cups;
+drop policy if exists "Allow public update" on public.doubles_cups;
+drop policy if exists "Allow public insert" on public.doubles_cups;
+create policy "Allow public read" on public.doubles_cups for select using (true);
+create policy "Allow public update" on public.doubles_cups for update using (true);
+create policy "Allow public insert" on public.doubles_cups for insert with check (true);
+
+drop policy if exists "Allow public read" on public.doubles_cup_teams;
+drop policy if exists "Allow public delete" on public.doubles_cup_teams;
+drop policy if exists "Allow public insert" on public.doubles_cup_teams;
+create policy "Allow public read" on public.doubles_cup_teams for select using (true);
+create policy "Allow public delete" on public.doubles_cup_teams for delete using (true);
+create policy "Allow public insert" on public.doubles_cup_teams for insert with check (true);
+
+do $$
+begin
+    begin
+        alter publication supabase_realtime add table public.doubles_cups;
+    exception when duplicate_object then null;
+    end;
+    begin
+        alter publication supabase_realtime add table public.doubles_cup_teams;
+    exception when duplicate_object then null;
+    end;
+end $$;
+
+-- 11. Undo Last Doubles Match
+CREATE OR REPLACE FUNCTION public.undo_last_doubles_match(p_match_id uuid DEFAULT NULL)
+RETURNS jsonb AS $$
+DECLARE
+    v_match_id uuid;
+    v_winner_id uuid;
+    v_loser_id uuid;
+    v_match_date date;
+    v_match_type text;
+    v_team_ids uuid[];
+    v_tid uuid;
+    v_already_closed boolean;
+    
+    -- Recalculation variables
+    v_wins int;
+    v_losses int;
+    v_points float;
+    v_current_streak int;
+    v_max_streak int;
+    
+    v_m record;
+BEGIN
+    IF p_match_id IS NOT NULL THEN
+        SELECT id, winner_team_id, loser_team_id, created_at::date, match_type
+        INTO v_match_id, v_winner_id, v_loser_id, v_match_date, v_match_type
+        FROM public.doubles_matches
+        WHERE id = p_match_id;
+    ELSE
+        SELECT id, winner_team_id, loser_team_id, created_at::date, match_type
+        INTO v_match_id, v_winner_id, v_loser_id, v_match_date, v_match_type
+        FROM public.doubles_matches
+        ORDER BY created_at DESC
+        LIMIT 1;
+    END IF;
+
+    IF v_match_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'message', 'No se encontró el partido para eliminar.');
+    END IF;
+
+    IF v_match_type = 'regular' THEN
+        SELECT EXISTS(SELECT 1 FROM public.closed_days WHERE date = v_match_date) INTO v_already_closed;
+        IF v_already_closed THEN
+            RETURN jsonb_build_object('success', false, 'message', 'No se puede anular un partido de un día ya cerrado (Fecha: ' || v_match_date || ').');
+        END IF;
+    END IF;
+
+    DELETE FROM public.doubles_matches WHERE id = v_match_id;
+
+    IF v_match_type = 'regular' THEN
+        v_team_ids := ARRAY[v_winner_id, v_loser_id];
+
+        FOREACH v_tid IN ARRAY v_team_ids LOOP
+            v_wins := 0;
+            v_losses := 0;
+            v_points := 0;
+            v_current_streak := 0;
+            v_max_streak := 0;
+
+            FOR v_m IN (
+                SELECT winner_team_id, loser_team_id, points_awarded
+                FROM public.doubles_matches
+                WHERE (winner_team_id = v_tid OR loser_team_id = v_tid)
+                  AND created_at::date = v_match_date
+                  AND match_type = 'regular'
+                ORDER BY created_at ASC
+            ) LOOP
+                IF v_m.winner_team_id = v_tid THEN
+                    v_wins := v_wins + 1;
+                    v_points := v_points + v_m.points_awarded;
+                    v_current_streak := v_current_streak + 1;
+                    v_max_streak := greatest(v_max_streak, v_current_streak);
+                ELSE
+                    v_losses := v_losses + 1;
+                    v_current_streak := 0;
+                END IF;
+            END LOOP;
+
+            UPDATE public.doubles_daily_stats
+            SET 
+                wins = v_wins,
+                losses = v_losses,
+                points = v_points,
+                current_streak = v_current_streak,
+                max_streak = v_max_streak
+            WHERE date = v_match_date AND team_id = v_tid;
+            
+            IF (v_wins + v_losses) = 0 THEN
+                DELETE FROM public.doubles_daily_stats WHERE date = v_match_date AND team_id = v_tid;
+            END IF;
+        END LOOP;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true, 
+        'message', 'Partido de Parejas anulado correctamente.',
+        'match_id', v_match_id,
+        'match_type', v_match_type
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 12. Function to increment cup wins total for a team in league standings (called on Cup Finish)
+CREATE OR REPLACE FUNCTION public.increment_doubles_cup_wins(p_team_id uuid)
+RETURNS void AS $$
+BEGIN
+    INSERT INTO public.doubles_league_standings (team_id, day_wins, total_points)
+    VALUES (p_team_id, 0, 0)
+    ON CONFLICT (team_id) DO NOTHING;
+    
+    -- Currently we don't have a cup_wins column in doubles_league_standings. Let's add it dynamically.
+    -- (This isn't supported inside a block easily in PG without EXECUTE, but since this is run as schema, we can do it outside or just add it to table definition)
+    -- UPDATE: We should add it to the table directly.
+    UPDATE public.doubles_league_standings
+    SET cup_wins = coalesce(cup_wins, 0) + 1, last_updated = now()
+    WHERE team_id = p_team_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
